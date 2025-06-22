@@ -7,6 +7,15 @@
 .globl camera
 .globl pget
 .globl pset
+.globl pal
+.globl palt
+.globl cls
+.globl clip
+.globl rect
+.globl rectfill
+.globl line
+.globl spr
+.globl print
 
 _start:
 	jal ra, _init
@@ -44,3 +53,49 @@ pset:
 	li a7, 102
 	ecall
 	ret
+
+pal:
+	li a7, 103
+	ecall
+	ret
+
+palt:
+	li a7, 104
+	ecall
+	ret
+
+cls:
+	li a7, 105
+	ecall
+	ret
+
+clip:
+	li a7, 106
+	ecall
+	ret
+
+rect:
+	li a7, 107
+	ecall
+	ret
+
+rectfill:
+	li a7, 108
+	ecall
+	ret
+
+line:
+	li a7, 109
+	ecall
+	ret
+
+spr:
+	li a7, 110
+	ecall
+	ret
+
+print:
+	li a7, 111
+	ecall
+	ret
+

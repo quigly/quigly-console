@@ -703,21 +703,6 @@ void vm_execute(vm_t* vm)
 			#endif
 			switch (syscall_value)
 			{
-#if 0
-void ppu_camera(ppu_t* ppu, i32 x, i32 y);
-u8 ppu_pget(ppu_t* ppu, i32 x, i32 y);
-void ppu_pset(ppu_t* ppu, i32 x, i32 y, u8 color);
-void ppu_pal(ppu_t* ppu, u8 c0, u8 c1);
-void ppu_palt(ppu_t* ppu, u8 color, bool transparent);
-void ppu_cls(ppu_t* ppu, u8 color);
-void ppu_clip(ppu_t* ppu, i32 x, i32 y, i32 w, i32 h);
-void ppu_rect(ppu_t* ppu, i32 x, i32 y, i32 w, i32 h, u8 color);
-void ppu_rectfill(ppu_t* ppu, i32 x, i32 y, i32 w, i32 h, u8 color);
-void ppu_line(ppu_t* ppu, i32 x0, i32 y0, i32 x1, i32 y1, u8 color);
-void ppu_spr(ppu_t* ppu, i32 n, i32 x, i32 y, bool flip_x, bool flip_y);
-void ppu_print(ppu_t* ppu, const char* text, i32 x, i32 y, u8 color);
-#endif
-
 				case 98:
 				{
 					vm->init_finished = true;
@@ -751,6 +736,97 @@ void ppu_print(ppu_t* ppu, const char* text, i32 x, i32 y, u8 color);
 					const u8 color = vm->cpu.x[12];
 
 					ppu_pset(&vm->ppu, x, y, color);
+				} break;
+
+				case 103: // pal
+				{
+					const u8 c0 = vm->cpu.x[10];
+					const u8 c1 = vm->cpu.x[11];
+
+					ppu_pal(&vm->ppu, c0, c1);
+				} break;
+				
+				case 104: // palt
+				{
+					const u8 color = vm->cpu.x[10];
+					const bool transparent = vm->cpu.x[11];
+
+					ppu_palt(&vm->ppu, color, transparent);
+				} break;
+
+				case 105: // cls
+				{
+					const u8 color = vm->cpu.x[10];
+
+					ppu_cls(&vm->ppu, color);
+				} break;
+
+				case 106: // clip
+				{
+					const i32 x = *(i32*)&vm->cpu.x[10];
+					const i32 y = *(i32*)&vm->cpu.x[11];
+					const i32 w = *(i32*)&vm->cpu.x[12];
+					const i32 h = *(i32*)&vm->cpu.x[13];
+
+					ppu_clip(&vm->ppu, x, y, w, h);
+				} break;
+
+				case 107: // rect
+				{
+					const i32 x = *(i32*)&vm->cpu.x[10];
+					const i32 y = *(i32*)&vm->cpu.x[11];
+					const i32 w = *(i32*)&vm->cpu.x[12];
+					const i32 h = *(i32*)&vm->cpu.x[13];
+					const u8 color = vm->cpu.x[14];
+
+					ppu_rect(&vm->ppu, x, y, w, h, color);
+				} break;
+				
+				case 108: // rectfill
+				{
+					const i32 x = *(i32*)&vm->cpu.x[10];
+					const i32 y = *(i32*)&vm->cpu.x[11];
+					const i32 w = *(i32*)&vm->cpu.x[12];
+					const i32 h = *(i32*)&vm->cpu.x[13];
+					const u8 color = vm->cpu.x[14];
+
+					ppu_rectfill(&vm->ppu, x, y, w, h, color);
+				} break;
+				
+				case 109: // line
+				{
+					const i32 x0 = *(i32*)&vm->cpu.x[10];
+					const i32 y0 = *(i32*)&vm->cpu.x[11];
+					const i32 x1 = *(i32*)&vm->cpu.x[12];
+					const i32 y1 = *(i32*)&vm->cpu.x[13];
+					const u8 color = vm->cpu.x[14];
+
+					ppu_line(&vm->ppu, x0, y0, x1, y1, color);
+				} break;
+				
+				case 110: // spr
+				{
+					const i32 n = *(i32*)&vm->cpu.x[10];
+					const i32 x = *(i32*)&vm->cpu.x[11];
+					const i32 y = *(i32*)&vm->cpu.x[12];
+					const bool flip_x = vm->cpu.x[13];
+					const bool flip_y = vm->cpu.x[14];
+
+					ppu_spr(&vm->ppu, n, x, y, flip_x, flip_y);
+				} break;
+				
+				case 111: // print
+				{
+					const u32 text_addr = *(u32*)&vm->cpu.x[10];
+					bus_device_t* device;
+					const char* text = bus_get_pointer(&vm->bus, &device, text_addr, 4);
+					assert(text != NULL);
+					const i32 x = *(i32*)&vm->cpu.x[11];
+					const i32 y = *(i32*)&vm->cpu.x[12];
+					const u8 color = vm->cpu.x[13];
+					printf("print(\"%s\", %i, %i, %u)\n", text, x, y, color);
+
+					ppu_print(&vm->ppu, text, x, y, color);
 				} break;
 
 				default:
