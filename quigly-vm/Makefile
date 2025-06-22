@@ -21,7 +21,7 @@ ifeq ($(config),debug)
     AR = ar
   endif
   RESCOMP = windres
-  TARGETDIR = ../bin
+  TARGETDIR = ../bin/quigly-vm/Debug
   TARGET = $(TARGETDIR)/quigly-vm
   OBJDIR = ../obj/quigly-vm/Debug
   DEFINES += -DDEBUG
@@ -57,7 +57,7 @@ ifeq ($(config),release)
     AR = ar
   endif
   RESCOMP = windres
-  TARGETDIR = ../bin
+  TARGETDIR = ../bin/quigly-vm/Release
   TARGET = $(TARGETDIR)/quigly-vm
   OBJDIR = ../obj/quigly-vm/Release
   DEFINES += -DNDEBUG
@@ -83,7 +83,7 @@ all: prebuild prelink $(TARGET)
 endif
 
 OBJECTS := \
-	$(OBJDIR)/main.o \
+	$(OBJDIR)/vm.o \
 
 RESOURCES := \
 
@@ -142,7 +142,7 @@ else
 $(OBJECTS): | $(OBJDIR)
 endif
 
-$(OBJDIR)/main.o: src/main.c
+$(OBJDIR)/vm.o: src/vm.c
 	@echo $(notdir $<)
 	$(SILENT) $(CC) $(ALL_CFLAGS) $(FORCE_INCLUDE) -o "$@" -MF "$(@:%.o=%.d)" -c "$<"
 

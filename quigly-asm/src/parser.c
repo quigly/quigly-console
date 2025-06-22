@@ -344,6 +344,22 @@ void parse_identifier(parser_t* parser, ast_node_t* parent)
 			assert(op0 != NULL);
 			op0->token = dst;
 		}
+		else if (parser_match_identifier(parser, string_from("lui")))
+		{
+			parser_expect(parser, TOKEN_TYPE_IDENTIFIER);
+			token_t* rd_tok = parser->token;
+			
+			parser_advance(parser);
+			parser_expect(parser, TOKEN_TYPE_COMMA);
+			
+			parser_advance(parser);
+			parser_expect(parser, TOKEN_TYPE_IDENTIFIER);
+			token_t* rs1_tok = parser->token;
+			
+			parser_advance(parser);
+			parser_expect(parser, TOKEN_TYPE_END_LINE);
+			parser_advance(parser);
+		}
 		else
 		{
 			printf("unhandled instruction %.*s in %s at %i:%i\n",

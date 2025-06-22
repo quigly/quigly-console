@@ -21,7 +21,7 @@ ifeq ($(config),debug)
     AR = ar
   endif
   RESCOMP = windres
-  TARGETDIR = ../bin
+  TARGETDIR = ../bin/quigly-asm/Debug
   TARGET = $(TARGETDIR)/quigly-asm
   OBJDIR = ../obj/quigly-asm/Debug
   DEFINES += -DDEBUG
@@ -57,7 +57,7 @@ ifeq ($(config),release)
     AR = ar
   endif
   RESCOMP = windres
-  TARGETDIR = ../bin
+  TARGETDIR = ../bin/quigly-asm/Release
   TARGET = $(TARGETDIR)/quigly-asm
   OBJDIR = ../obj/quigly-asm/Release
   DEFINES += -DNDEBUG

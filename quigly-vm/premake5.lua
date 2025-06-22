@@ -1,7 +1,7 @@
 project "quigly-vm"
 	kind "ConsoleApp"
 	language "C"
-	targetdir ("%{wks.location}/" .. outputdir)
+	targetdir ("%{wks.location}/" .. outputdir .. "/%{prj.name}/%{cfg.buildcfg}/")
 	objdir ("%{wks.location}/obj/%{prj.name}/%{cfg.buildcfg}")
 	targetname "quigly-vm"
 	toolset "clang"
