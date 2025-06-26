@@ -1642,6 +1642,7 @@ void ppu_init(ppu_t* ppu)
 	}
 
 	ppu_import(ppu, "font.png", ppu->font_pixels, 128, 128);
+	ppu_import(ppu, "sprites.png", ppu->sprite_pixels, 128, 128);
 }
 
 void ppu_camera(ppu_t* ppu, i32 x, i32 y)

@@ -48,5 +48,16 @@ void _draw()
 	if (btn(BUTTON_DPAD_DOWN, 0)) { y += 1; }
 	if (btn(BUTTON_DPAD_LEFT, 0)) { x -= 1; }
 	if (btn(BUTTON_DPAD_RIGHT, 0)) { x += 1; }
+
+	static bool open = false;
+
+	if (btnp(BUTTON_A, 0)) { open = !open; }
+
+	if (open)
+	{
+		print("Open!", 1, 1, 8);
+	}
+
+	spr(0, 50, 50, false, false);
 }
 
