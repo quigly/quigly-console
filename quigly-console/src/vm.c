@@ -279,7 +279,7 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv)
 	printf("Starting init\n");
 	while (!vm->init_finished)
 	{
-		vm_execute(vm);
+		execute(vm);
 		if (!vm->running)
 		{
 			return SDL_APP_FAILURE;
@@ -300,7 +300,6 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv)
 	}
 #endif
 
-
 	return SDL_APP_CONTINUE;
 }
 
@@ -308,11 +307,66 @@ SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event *event)
 {
 	vm_t* vm = appstate;
 	
-	if (event->type == SDL_EVENT_WINDOW_CLOSE_REQUESTED)
+	switch (event->type)
 	{
-		return SDL_APP_SUCCESS;
+		case SDL_EVENT_WINDOW_CLOSE_REQUESTED:
+		{
+			return SDL_APP_SUCCESS;
+		} break;
+
+		case SDL_EVENT_KEY_DOWN:
+		{
+			button_state_t* state = &vm->input.key_states[event->key.scancode];
+
+			if (!state->is_down)
+			{
+				state->tick_down = vm->time.ticks;
+			}
+			state->is_down = true;
+		} break;
+
+		case SDL_EVENT_KEY_UP:
+		{
+			button_state_t* state = &vm->input.key_states[event->key.scancode];
+
+			state->is_down = false;
+		} break;
+
+		case SDL_EVENT_MOUSE_BUTTON_DOWN:
+		{
+			button_state_t* state = &vm->input.mouse_button_states[event->button.button];
+
+			if (!state->is_down)
+			{
+				state->tick_down = vm->time.ticks;
+			}
+			state->is_down = true;
+		} break;
+		
+		case SDL_EVENT_MOUSE_BUTTON_UP:
+		{
+			button_state_t* state = &vm->input.mouse_button_states[event->button.button];
+
+			state->is_down = false;
+		} break;
+
+		case SDL_EVENT_MOUSE_MOTION:
+		{
+			const f32 scale_x = (f32)vm->video.window_width / (f32)PPU_SCREEN_WIDTH;
+			const f32 scale_y = (f32)vm->video.window_height / (f32)PPU_SCREEN_HEIGHT;
+			
+			vm->input.mouse_x = (f32)event->motion.x / scale_x;
+			vm->input.mouse_y = (f32)event->motion.y / scale_y;
+			vm->input.mouse_dx = event->motion.xrel;
+			vm->input.mouse_dy = event->motion.yrel;
+		} break;
+
+		case SDL_EVENT_MOUSE_WHEEL:
+		{
+			vm->input.mouse_wheel_delta = event->wheel.y;
+		} break;
 	}
-	
+
 	return SDL_APP_CONTINUE;
 }
 
@@ -331,7 +385,6 @@ SDL_AppResult SDL_AppIterate(void* appstate)
 		vm->ppu.pixels = vm->video.pixels;
 
 		ppu_clip(&vm->ppu, 0, 0, PPU_SCREEN_WIDTH, PPU_SCREEN_HEIGHT);
-		ppu_cls(&vm->ppu, 0);
 
 		assert(vm->cpu.csrs[0x7C2]);
 		vm->cpu.pc = vm->cpu.csrs[0x7C2];
@@ -339,7 +392,7 @@ SDL_AppResult SDL_AppIterate(void* appstate)
 		vm->finished_frame = false;
 		while (!vm->finished_frame)
 		{
-			vm_execute(vm);
+			execute(vm);
 			if (!vm->running)
 			{
 				return SDL_APP_FAILURE;
@@ -376,7 +429,7 @@ void SDL_AppQuit(void* appstate, SDL_AppResult result)
 
 }
 
-void vm_execute(vm_t* vm)
+void execute(vm_t* vm)
 {
 	assert((vm->cpu.pc % 4) == 0);
 	const u32 inst = bus_read_32(&vm->bus, &vm->cpu, vm->cpu.pc);
@@ -703,6 +756,92 @@ void vm_execute(vm_t* vm)
 			#endif
 			switch (syscall_value)
 			{
+				case 50: // btn
+				{
+					const u8 button = vm->cpu.x[10];
+					const u8 player = vm->cpu.x[11];
+
+					bool is_down = false;
+
+					switch (button)
+					{
+						case BUTTON_DPAD_LEFT:
+						{
+							is_down = is_key_down(vm, SDL_SCANCODE_A);
+						} break;
+						
+						case BUTTON_DPAD_RIGHT:
+						{
+							is_down = is_key_down(vm, SDL_SCANCODE_D);
+						} break;
+
+						case BUTTON_DPAD_UP:
+						{
+							is_down = is_key_down(vm, SDL_SCANCODE_W);
+						} break;
+						
+						case BUTTON_DPAD_DOWN:
+						{
+							is_down = is_key_down(vm, SDL_SCANCODE_S);
+						} break;
+						
+						case BUTTON_A:
+						{
+							is_down = is_key_down(vm, SDL_SCANCODE_X);
+						} break;
+
+						case BUTTON_B:
+						{
+							is_down = is_key_down(vm, SDL_SCANCODE_Z);
+						} break;
+					}
+
+					vm->cpu.x[10] = is_down;
+				} break;
+
+				case 51: // btnp
+				{
+					const u8 button = vm->cpu.x[10];
+					const u8 player = vm->cpu.x[11];
+
+					bool is_pressed = false;
+
+					switch (button)
+					{
+						case BUTTON_DPAD_LEFT:
+						{
+							is_pressed = is_key_pressed(vm, SDL_SCANCODE_A);
+						} break;
+						
+						case BUTTON_DPAD_RIGHT:
+						{
+							is_pressed = is_key_pressed(vm, SDL_SCANCODE_D);
+						} break;
+
+						case BUTTON_DPAD_UP:
+						{
+							is_pressed = is_key_pressed(vm, SDL_SCANCODE_W);
+						} break;
+						
+						case BUTTON_DPAD_DOWN:
+						{
+							is_pressed = is_key_pressed(vm, SDL_SCANCODE_S);
+						} break;
+						
+						case BUTTON_A:
+						{
+							is_pressed = is_key_pressed(vm, SDL_SCANCODE_X);
+						} break;
+
+						case BUTTON_B:
+						{
+							is_pressed = is_key_pressed(vm, SDL_SCANCODE_Z);
+						} break;
+					}
+
+					vm->cpu.x[10] = is_pressed;
+				} break;
+
 				case 98:
 				{
 					vm->init_finished = true;
@@ -824,7 +963,7 @@ void vm_execute(vm_t* vm)
 					const i32 x = *(i32*)&vm->cpu.x[11];
 					const i32 y = *(i32*)&vm->cpu.x[12];
 					const u8 color = vm->cpu.x[13];
-					printf("print(\"%s\", %i, %i, %u)\n", text, x, y, color);
+					// printf("print(\"%s\", %i, %i, %u)\n", text, x, y, color);
 
 					ppu_print(&vm->ppu, text, x, y, color);
 				} break;
@@ -1699,8 +1838,26 @@ void ppu_print(ppu_t* ppu, const char* text, i32 x, i32 y, u8 color)
 	}
 }
 
+bool input_btn(input_t* input, u8 button, u8 player)
+{
+	return false;
+}
 
+bool input_btnp(input_t* input, u8 button, u8 player)
+{
+	return false;
+}
 
+bool is_key_down(vm_t* vm, SDL_Scancode scancode)
+{
+	return vm->input.key_states[scancode].is_down;
+}
+
+bool is_key_pressed(vm_t* vm, SDL_Scancode scancode)
+{
+	return vm->input.key_states[scancode].is_down &&
+		vm->input.key_states[scancode].tick_down == vm->time.ticks;
+}
 
 
 

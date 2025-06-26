@@ -9,35 +9,26 @@ ifndef verbose
 endif
 
 ifeq ($(config),debug)
-  quigly_asm_config = debug
-  quigly_vm_config = debug
+  quigly_console_config = debug
 endif
 ifeq ($(config),release)
-  quigly_asm_config = release
-  quigly_vm_config = release
+  quigly_console_config = release
 endif
 
-PROJECTS := quigly-asm quigly-vm
+PROJECTS := quigly-console
 
 .PHONY: all clean help $(PROJECTS) 
 
 all: $(PROJECTS)
 
-quigly-asm:
-ifneq (,$(quigly_asm_config))
-	@echo "==== Building quigly-asm ($(quigly_asm_config)) ===="
-	@${MAKE} --no-print-directory -C quigly-asm -f Makefile config=$(quigly_asm_config)
-endif
-
-quigly-vm:
-ifneq (,$(quigly_vm_config))
-	@echo "==== Building quigly-vm ($(quigly_vm_config)) ===="
-	@${MAKE} --no-print-directory -C quigly-vm -f Makefile config=$(quigly_vm_config)
+quigly-console:
+ifneq (,$(quigly_console_config))
+	@echo "==== Building quigly-console ($(quigly_console_config)) ===="
+	@${MAKE} --no-print-directory -C quigly-console -f Makefile config=$(quigly_console_config)
 endif
 
 clean:
-	@${MAKE} --no-print-directory -C quigly-asm -f Makefile clean
-	@${MAKE} --no-print-directory -C quigly-vm -f Makefile clean
+	@${MAKE} --no-print-directory -C quigly-console -f Makefile clean
 
 help:
 	@echo "Usage: make [config=name] [target]"
@@ -49,7 +40,6 @@ help:
 	@echo "TARGETS:"
 	@echo "   all (default)"
 	@echo "   clean"
-	@echo "   quigly-asm"
-	@echo "   quigly-vm"
+	@echo "   quigly-console"
 	@echo ""
 	@echo "For more information, see https://github.com/premake/premake-core/wiki"

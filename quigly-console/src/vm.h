@@ -112,6 +112,34 @@ typedef struct
 
 typedef struct
 {
+	bool is_down;
+	u64 tick_down;
+} button_state_t;
+
+typedef struct
+{
+	button_state_t key_states[SDL_SCANCODE_COUNT];
+	button_state_t mouse_button_states[16];
+	i32 mouse_x;
+	i32 mouse_y;
+	i32 mouse_dx;
+	i32 mouse_dy;
+	bool mouse_captured;
+	i32 mouse_wheel_delta;
+} input_t;
+
+typedef enum
+{
+	BUTTON_DPAD_LEFT,
+	BUTTON_DPAD_RIGHT,
+	BUTTON_DPAD_UP,
+	BUTTON_DPAD_DOWN,
+	BUTTON_A,
+	BUTTON_B
+} button_e;
+
+typedef struct
+{
 	cpu_t cpu;
 	bus_t bus;
 	ppu_t ppu;
@@ -121,6 +149,8 @@ typedef struct
 	bool paused;
 	bool finished_frame;
 	bool init_finished;
+
+	input_t input;
 
 	struct
 	{
@@ -134,7 +164,7 @@ typedef struct
 	} time;
 } vm_t;
 
-void vm_execute(vm_t* vm);
+void execute(vm_t* vm);
 
 void cpu_decode(cpu_t* cpu, u32 inst);
 
@@ -161,52 +191,14 @@ void ppu_line(ppu_t* ppu, i32 x0, i32 y0, i32 x1, i32 y1, u8 color);
 void ppu_spr(ppu_t* ppu, i32 n, i32 x, i32 y, bool flip_x, bool flip_y);
 void ppu_print(ppu_t* ppu, const char* text, i32 x, i32 y, u8 color);
 
+bool input_btn(input_t* input, u8 button, u8 player);
+bool input_btnp(input_t* input, u8 button, u8 player);
+
+bool is_key_down(vm_t* vm, SDL_Scancode scancode);
+bool is_key_pressed(vm_t* vm, SDL_Scancode scancode);
+
 /*
 csr 0x7C0 frame ready (ready for guest to begin frame)
 	0x7C1 render ready (guest finished frame)
 	0x7C2 frame start address
 */
-
-#if 0
-Disassembly of section .text:
-
-00100000 <_start>:
-  100000: 054000ef     	jal	0x100054 <_init>
-  100004: 00000297     	auipc	t0, 0x0
-  100008: 01828293     	addi	t0, t0, 0x18
-  10000c: 7c229073     	csrw	0x7c2, t0
-  100010: 00c000ef     	jal	0x10001c <_gameloop>
-  100014: 06200893     	li	a7, 0x62
-  100018: 00000073     	ecall
-
-0010001c <_gameloop>:
-  10001c: 03c000ef     	jal	0x100058 <_update>
-  100020: 03c000ef     	jal	0x10005c <_draw>
-  100024: 06300893     	li	a7, 0x63
-  100028: 00000073     	ecall
-  10002c: 00008067     	ret
-
-00100030 <camera>:
-  100030: 06400893     	li	a7, 0x64
-  100034: 00000073     	ecall
-  100038: 00008067     	ret
-
-0010003c <pget>:
-  10003c: 06500893     	li	a7, 0x65
-  100040: 00000073     	ecall
-  100044: 00008067     	ret
-
-00100048 <pset>:
-  100048: 06600893     	li	a7, 0x66
-  10004c: 00000073     	ecall
-  100050: 00008067     	ret
-
-00100054 <_init>:
-  100054: 00008067     	ret
-
-00100058 <_update>:
-  100058: 00008067     	ret
-
-0010005c <_draw>:
-  10005c: 00008067     	ret
-#endif

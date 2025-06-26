@@ -16,6 +16,8 @@
 .globl line
 .globl spr
 .globl print
+.globl btn
+.globl btnp
 
 _start:
 	jal ra, _init
@@ -99,3 +101,12 @@ print:
 	ecall
 	ret
 
+btn:
+	li a7, 50
+	ecall
+	ret
+
+btnp:
+	li a7, 51
+	ecall
+	ret

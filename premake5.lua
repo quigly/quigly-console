@@ -7,5 +7,4 @@ workspace "Quigly Console"
 
 	outputdir = "bin"
 
-include "quigly-asm"
-include "quigly-vm"
+include "quigly-console"

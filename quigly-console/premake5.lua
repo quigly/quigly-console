@@ -1,9 +1,9 @@
-project "quigly-asm"
+project "quigly-console"
 	kind "ConsoleApp"
 	language "C"
 	targetdir ("%{wks.location}/" .. outputdir .. "/%{prj.name}/%{cfg.buildcfg}/")
 	objdir ("%{wks.location}/obj/%{prj.name}/%{cfg.buildcfg}")
-	targetname "quigly-asm"
+	targetname "quigly-console"
 	toolset "clang"
 
 	pic "On"
@@ -16,7 +16,7 @@ project "quigly-asm"
 
 	includedirs
 	{
-		"%{wks.location}/asm/src"
+		"%{wks.location}/quigly-console/src"
 	}
 
 	filter "configurations:Debug"

@@ -21,9 +21,9 @@ ifeq ($(config),debug)
     AR = ar
   endif
   RESCOMP = windres
-  TARGETDIR = ../bin/quigly-vm/Debug
-  TARGET = $(TARGETDIR)/quigly-vm
-  OBJDIR = ../obj/quigly-vm/Debug
+  TARGETDIR = ../bin/quigly-console/Debug
+  TARGET = $(TARGETDIR)/quigly-console
+  OBJDIR = ../obj/quigly-console/Debug
   DEFINES += -DDEBUG
   INCLUDES += -Isrc
   FORCE_INCLUDE +=
@@ -57,9 +57,9 @@ ifeq ($(config),release)
     AR = ar
   endif
   RESCOMP = windres
-  TARGETDIR = ../bin/quigly-vm/Release
-  TARGET = $(TARGETDIR)/quigly-vm
-  OBJDIR = ../obj/quigly-vm/Release
+  TARGETDIR = ../bin/quigly-console/Release
+  TARGET = $(TARGETDIR)/quigly-console
+  OBJDIR = ../obj/quigly-console/Release
   DEFINES += -DNDEBUG
   INCLUDES += -Isrc
   FORCE_INCLUDE +=
@@ -95,7 +95,7 @@ ifeq (.exe,$(findstring .exe,$(ComSpec)))
 endif
 
 $(TARGET): $(GCH) ${CUSTOMFILES} $(OBJECTS) $(LDDEPS) $(RESOURCES) | $(TARGETDIR)
-	@echo Linking quigly-vm
+	@echo Linking quigly-console
 	$(SILENT) $(LINKCMD)
 	$(POSTBUILDCMDS)
 
@@ -118,7 +118,7 @@ else
 endif
 
 clean:
-	@echo Cleaning quigly-vm
+	@echo Cleaning quigly-console
 ifeq (posix,$(SHELLTYPE))
 	$(SILENT) rm -f  $(TARGET)
 	$(SILENT) rm -rf $(OBJDIR)

@@ -12,6 +12,18 @@ extern void rectfill(i32 x, i32 y, i32 w, i32 h, u8 color);
 extern void line(i32 x0, i32 y0, i32 x1, i32 y1, u8 color);
 extern void spr(i32 n, i32 x, i32 y, u8 flip_x, u8 flip_y);
 extern void print(const char* text, i32 x, i32 y, u8 color);
+extern bool btn(u8 button, u8 player);
+extern bool btnp(u8 button, u8 player);
+
+typedef enum
+{
+	BUTTON_DPAD_LEFT,
+	BUTTON_DPAD_RIGHT,
+	BUTTON_DPAD_UP,
+	BUTTON_DPAD_DOWN,
+	BUTTON_A,
+	BUTTON_B
+} button_e;
 
 void _init()
 {
@@ -25,10 +37,16 @@ void _update()
 
 void _draw()
 {
-	pset(1, 1, 8);
-	pset(2, 2, 9);
-	pset(3, 3, 10);
+	cls(1);
 
-	print("Hello world risc-v :D", 10, 10, 8);
+	static i32 x = 0;
+	static i32 y = 0;
+
+	print("Quigly", x, y, 7);
+
+	if (btn(BUTTON_DPAD_UP, 0)) { y -= 1; }
+	if (btn(BUTTON_DPAD_DOWN, 0)) { y += 1; }
+	if (btn(BUTTON_DPAD_LEFT, 0)) { x -= 1; }
+	if (btn(BUTTON_DPAD_RIGHT, 0)) { x += 1; }
 }
 
