@@ -1664,6 +1664,11 @@ u8 ppu_pget(ppu_t* ppu, i32 x, i32 y)
 
 void ppu_pset(ppu_t* ppu, i32 x, i32 y, u8 color)
 {
+	if (ppu->palette_transparent[color])
+	{
+		return;
+	}
+
 	assert(ppu->pixels != NULL);
 
 	const i32 index = x + y * PPU_SCREEN_WIDTH;

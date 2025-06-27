@@ -58,6 +58,8 @@ void _draw()
 		print("Open!", 1, 1, 8);
 	}
 
+	palt(0, true);
 	spr(0, 50, 50, false, false);
+	palt(0, false);
 }
 
