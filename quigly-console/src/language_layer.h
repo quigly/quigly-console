@@ -84,7 +84,11 @@ typedef u8 bool;
 #define unreachable\
 	printf("Reached unreachable code at %s:%u\n", __FILE__, __LINE__); exit(1)
 
+#ifdef DEBUG
 #define assert(expr) if (!(expr)) { printf("Assert failed at %s:%i\n", __FILE__, __LINE__); exit(1); }
+#else
+#define assert(expr)
+#endif
 
 static inline void mem_swap_byte(u8* a, u8* b)
 {
