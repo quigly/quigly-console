@@ -258,23 +258,35 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv)
 	if (!bus_init_device(&vm->bus, 1, "sram", MEGABYTES(100), MEGABYTES(1))) { return SDL_APP_FAILURE; }
 
 	vm->bus.sram.read_delay = 50;
-	vm->bus.sram.write_delay = 50;
+	vm->bus.sram.write_delay = 50;	
 
 	vm->bus.dram.access_flags = ACCESS_FLAG_READ | ACCESS_FLAG_WRITE;
 	vm->bus.sram.access_flags = ACCESS_FLAG_READ | ACCESS_FLAG_WRITE;
 
+	size_t rom_size = 0;
+
+	printf("Loading rom file\n");
 	{
 		FILE* fp = fopen(rom_path, "rb");
 
 		fseek(fp, 0, SEEK_END);
-		const size_t size = ftell(fp);
+		rom_size = ftell(fp);
+		printf("Rom size: %lu bytes\n", rom_size);
 		fseek(fp, 0, SEEK_SET);
+	
+		if (!bus_init_device(&vm->bus, 2, "rom", GIGABYTES(3), rom_size)) { return SDL_APP_FAILURE; }
 
-		fread(vm->bus.dram.memory, size, 1, fp);
+		fread(vm->bus.rom.memory, rom_size, 1, fp);
 
 		fclose(fp);
-	}
 
+		vm->bus.rom.read_delay = 50;
+		vm->bus.rom.write_delay = 50;	
+		vm->bus.rom.access_flags = ACCESS_FLAG_READ;
+	
+		memcpy(vm->bus.dram.memory, vm->bus.rom.memory, rom_size);
+	}
+	
 	ppu_init(&vm->ppu);
 
 	vm->cpu.x[2] = vm->bus.dram.region.begin + MEGABYTES(2);

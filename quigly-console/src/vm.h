@@ -9,7 +9,7 @@
 #define FUNCT7_MASK 0x7F
 #define SHAMT_MASK 0x1F
 
-#define BUS_MAX_DEVICES 2
+#define BUS_MAX_DEVICES 3
 
 #define PPU_SCREEN_WIDTH 128
 #define PPU_SCREEN_HEIGHT 128
@@ -53,6 +53,7 @@ typedef union
 	{
 		bus_device_t dram;
 		bus_device_t sram;
+		bus_device_t rom;
 	};
 	bus_device_t devices[BUS_MAX_DEVICES];
 } bus_t;
