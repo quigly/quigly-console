@@ -255,7 +255,13 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv)
 	SDL_SetTextureScaleMode(vm->video.texture, SDL_SCALEMODE_NEAREST);
 	
 	if (!bus_init_device(&vm->bus, 0, "dram", MEGABYTES(1), MEGABYTES(4))) { return SDL_APP_FAILURE; }
-	if (!bus_init_device(&vm->bus, 1, "sram", MEGABYTES(100), KILOBYTES(512))) { return SDL_APP_FAILURE; }
+	if (!bus_init_device(&vm->bus, 1, "sram", MEGABYTES(100), MEGABYTES(1))) { return SDL_APP_FAILURE; }
+
+	vm->bus.sram.read_delay = 50;
+	vm->bus.sram.write_delay = 50;
+
+	vm->bus.dram.access_flags = ACCESS_FLAG_READ | ACCESS_FLAG_WRITE;
+	vm->bus.sram.access_flags = ACCESS_FLAG_READ | ACCESS_FLAG_WRITE;
 
 	{
 		FILE* fp = fopen(rom_path, "rb");
@@ -959,6 +965,8 @@ void execute(vm_t* vm)
 					const u32 text_addr = *(u32*)&vm->cpu.x[10];
 					bus_device_t* device;
 					const char* text = bus_get_pointer(&vm->bus, &device, text_addr, 4);
+					if ((device->access_flags & ACCESS_FLAG_READ) == 0) { unreachable; }
+					if (device->read_delay > 0) { SDL_Delay(device->read_delay); }
 					assert(text != NULL);
 					const i32 x = *(i32*)&vm->cpu.x[11];
 					const i32 y = *(i32*)&vm->cpu.x[12];
@@ -1460,6 +1468,9 @@ u8 bus_read_8(bus_t* bus, cpu_t* cpu, u32 address)
 		return 0;
 	}
 
+	if ((device->access_flags & ACCESS_FLAG_READ) == 0) { unreachable; }
+	if (device->read_delay > 0) { SDL_Delay(device->read_delay); }
+
 	return *(u8*)ptr;
 }
 
@@ -1472,6 +1483,9 @@ u16 bus_read_16(bus_t* bus, cpu_t* cpu, u32 address)
 		// TODO: handle invalid address
 		return 0;
 	}
+	
+	if ((device->access_flags & ACCESS_FLAG_READ) == 0) { unreachable; }
+	if (device->read_delay > 0) { SDL_Delay(device->read_delay); }
 
 	return *(u16*)ptr;
 }
@@ -1486,6 +1500,9 @@ u32 bus_read_32(bus_t* bus, cpu_t* cpu, u32 address)
 		return 0;
 	}
 
+	if ((device->access_flags & ACCESS_FLAG_READ) == 0) { unreachable; }
+	if (device->read_delay > 0) { SDL_Delay(device->read_delay); }
+
 	return *(u32*)ptr;
 }
 
@@ -1498,6 +1515,9 @@ void bus_write_8(bus_t* bus, cpu_t* cpu, u32 address, u8 value)
 		// TODO: handle invalid address
 		return;
 	}
+	
+	if ((device->access_flags & ACCESS_FLAG_WRITE) == 0) { unreachable; }
+	if (device->write_delay > 0) { SDL_Delay(device->read_delay); }
 
 	*(u8*)ptr = value;
 }
@@ -1511,6 +1531,9 @@ void bus_write_16(bus_t* bus, cpu_t* cpu, u32 address, u16 value)
 		// TODO: handle invalid address
 		return;
 	}
+	
+	if ((device->access_flags & ACCESS_FLAG_WRITE) == 0) { unreachable; }
+	if (device->write_delay > 0) { SDL_Delay(device->read_delay); }
 
 	*(u16*)ptr = value;
 }
@@ -1524,6 +1547,9 @@ void bus_write_32(bus_t* bus, cpu_t* cpu, u32 address, u32 value)
 		// TODO: handle invalid address
 		return;
 	}
+	
+	if ((device->access_flags & ACCESS_FLAG_WRITE) == 0) { unreachable; }
+	if (device->write_delay > 0) { SDL_Delay(device->read_delay); }
 
 	*(u32*)ptr = value;
 }

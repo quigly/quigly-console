@@ -29,12 +29,22 @@ typedef enum
 	BUS_RESULT_INVALID_ADDRESS
 } bus_result_e;
 
+typedef enum
+{
+	ACCESS_FLAG_NONE = 0,
+	ACCESS_FLAG_READ = 1 << 0,
+	ACCESS_FLAG_WRITE = 1 << 1
+} access_flags_e;
+
 typedef struct
 {
 	char label[128];
 	u8* memory;
 	u32 size;
 	memory_region_t region;
+	u32 read_delay;
+	u32 write_delay;
+	u32 access_flags;
 } bus_device_t;
 
 typedef union
