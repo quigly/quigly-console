@@ -21,9 +21,9 @@ ifeq ($(config),debug)
     AR = ar
   endif
   RESCOMP = windres
-  TARGETDIR = ../bin/quigly-console/Debug
+  TARGETDIR = ../bin/quigly-console/linux-Debug
   TARGET = $(TARGETDIR)/quigly-console
-  OBJDIR = ../obj/quigly-console/Debug
+  OBJDIR = ../obj/quigly-console/linux-Debug
   DEFINES += -DDEBUG
   INCLUDES += -Isrc
   FORCE_INCLUDE +=
@@ -57,9 +57,9 @@ ifeq ($(config),release)
     AR = ar
   endif
   RESCOMP = windres
-  TARGETDIR = ../bin/quigly-console/Release
+  TARGETDIR = ../bin/quigly-console/linux-Release
   TARGET = $(TARGETDIR)/quigly-console
-  OBJDIR = ../obj/quigly-console/Release
+  OBJDIR = ../obj/quigly-console/linux-Release
   DEFINES += -DNDEBUG
   INCLUDES += -Isrc
   FORCE_INCLUDE +=

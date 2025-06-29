@@ -15,6 +15,9 @@ extern void print(const char* text, i32 x, i32 y, u8 color);
 extern bool btn(u8 button, u8 player);
 extern bool btnp(u8 button, u8 player);
 
+#define BALL_W 8
+#define BALL_H 8
+
 typedef enum
 {
 	BUTTON_DPAD_LEFT,
@@ -25,21 +28,159 @@ typedef enum
 	BUTTON_B
 } button_e;
 
+typedef struct
+{
+	i32 pos_x;
+	i32 pos_y;
+	i32 prev_pos_x;
+	i32 prev_pos_y;
+	i32 vel_x;
+	i32 vel_y;
+} ball_t;
+
+typedef struct
+{
+	i32 pos_x;
+	i32 pos_y;
+	i32 size_x;
+	i32 size_y;
+} paddle_t;
+
+typedef struct
+{
+	i32 x0;
+	i32 y0;
+	i32 x1;
+	i32 y1;
+} rect_t;
+
+static paddle_t paddles[2];
+static ball_t balls[1];
+static u32 seed;
+
+static u32 rand()
+{
+	seed = seed * 4398278 + 2348916;
+	return seed;
+}
+
+static bool rect_intersects(rect_t a, rect_t b)
+{
+	if (a.x1 < b.x0) { return false; }
+	if (a.y1 < b.y0) { return false; }
+	if (a.x0 > b.x1) { return false; }
+	if (a.y0 > b.y1) { return false; }
+
+	return true;
+}
+
+static bool check_collision(const ball_t* ball, const paddle_t* paddle)
+{
+	const rect_t paddle_rect = (rect_t)
+	{
+		ball->pos_x - (BALL_W / 2),
+		ball->pos_y - (BALL_H / 2),
+		ball->pos_x + (BALL_W / 2),
+		ball->pos_y + (BALL_H / 2)
+	};
+
+	const rect_t ball_rect = (rect_t)
+	{
+		paddle->pos_x - (paddle->size_x / 2),
+		paddle->pos_y - (paddle->size_y / 2),
+		paddle->pos_x + (paddle->size_x / 2),
+		paddle->pos_y + (paddle->size_y / 2)
+	};
+
+	return rect_intersects(paddle_rect, ball_rect);
+}
+
 void _init()
 {
+	balls[0].pos_x = 64;
+	balls[0].pos_y = 40;
+	balls[0].vel_x = 1;
+	balls[0].vel_y = 1;
 
+	paddles[0].pos_x = (128 / 2);
+	paddles[0].pos_y = 128 - 10;
+	paddles[0].size_x = 30;
+	paddles[0].size_y = 6;
+	
+	paddles[1].pos_x = (128 / 2);
+	paddles[1].pos_y = 10;
+	paddles[1].size_x = 40;
+	paddles[1].size_y = 6;
 }
 
 void _update()
 {
+	balls[0].prev_pos_x = balls[0].pos_x;
+	balls[0].prev_pos_y = balls[0].pos_y;
 
+	balls[0].pos_x += balls[0].vel_x;
+	balls[0].pos_y += balls[0].vel_y;
+
+	paddles[1].pos_x = clamp(balls[0].pos_x, paddles[1].size_x / 2, 128 - (paddles[1].size_x / 2));
+
+	if (btn(BUTTON_DPAD_LEFT, 0))
+	{
+		paddles[0].pos_x -= 1;
+		if (paddles[0].pos_x - (paddles[0].size_x / 2) < 0)
+		{
+			paddles[0].pos_x = (paddles[0].size_x / 2);
+		}
+	}
+	
+	if (btn(BUTTON_DPAD_RIGHT, 0))
+	{
+		paddles[0].pos_x += 1;
+		if (paddles[0].pos_x + (paddles[0].size_x / 2) >= 128)
+		{
+			paddles[0].pos_x = 128 - (paddles[0].size_x / 2);
+		}
+	}
+
+	if (balls[0].pos_x + (BALL_W / 2) >= 128 || balls[0].pos_x - (BALL_W / 2) < 0)
+	{
+		balls[0].pos_x = clamp(balls[0].pos_x, BALL_W / 2, 128 - (BALL_W / 2));
+		balls[0].vel_x *= -1;
+	}
+
+	if (balls[0].pos_y - (BALL_H / 2) < 0)
+	{
+		balls[0].pos_x = 64 + ((rand() % 12) - 6);
+		balls[0].pos_y = 30;
+		balls[0].vel_y = 1;
+	}
+	
+	if (balls[0].pos_y - (BALL_H / 2) >= 128)
+	{
+		balls[0].pos_x = 64 + ((rand() % 12) - 6);
+		balls[0].pos_y = 30;
+		balls[0].vel_y = 1;
+	}
+
+	if (check_collision(&balls[0], &paddles[0])) // player
+	{
+		balls[0].pos_x = balls[0].prev_pos_x;
+		balls[0].pos_y = balls[0].prev_pos_y;
+		balls[0].vel_y *= -1;
+	}
+	
+	if (check_collision(&balls[0], &paddles[1])) // enemy
+	{
+		balls[0].pos_x = balls[0].prev_pos_x;
+		balls[0].pos_y = balls[0].prev_pos_y;
+		balls[0].vel_y *= -1;
+	}
 }
 
 void _draw()
 {
-	cls(1);
+	cls(0);
 
-	static i32 x = 0;
+	/*static i32 x = 0;
 	static i32 y = 0;
 
 	print("Quigly", x, y, 7);
@@ -60,6 +201,11 @@ void _draw()
 
 	palt(0, true);
 	spr(0, 50, 50, false, false);
-	palt(0, false);
+	palt(0, false);*/
+
+	rectfill(paddles[0].pos_x - (paddles[0].size_x / 2), paddles[0].pos_y - (paddles[0].size_y / 2), paddles[0].size_x, paddles[0].size_y, 7);
+	rectfill(paddles[1].pos_x - (paddles[1].size_x / 2), paddles[1].pos_y - (paddles[1].size_y / 2), paddles[1].size_x, paddles[1].size_y, 7);
+
+	rectfill(balls[0].pos_x - (BALL_W / 2), balls[0].pos_y - (BALL_H / 2), BALL_W, BALL_H, 7);
 }
 

@@ -1,8 +1,8 @@
 project "quigly-console"
 	kind "ConsoleApp"
 	language "C"
-	targetdir ("%{wks.location}/" .. outputdir .. "/%{prj.name}/%{cfg.buildcfg}/")
-	objdir ("%{wks.location}/obj/%{prj.name}/%{cfg.buildcfg}")
+	targetdir ("%{wks.location}/" .. outputdir .. "/%{prj.name}/%{cfg.system}-%{cfg.buildcfg}")
+	objdir ("%{wks.location}/obj/%{prj.name}/%{cfg.system}-%{cfg.buildcfg}")
 	targetname "quigly-console"
 	toolset "clang"
 
@@ -30,3 +30,6 @@ project "quigly-console"
 
 	filter "system:linux"
 		links { "m", "dl", "SDL3" }
+
+	filter "system:emscripten"
+		links { "SDL3" }
