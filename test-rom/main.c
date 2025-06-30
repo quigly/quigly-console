@@ -14,9 +14,12 @@ extern void spr(i32 n, i32 x, i32 y, u8 flip_x, u8 flip_y);
 extern void print(const char* text, i32 x, i32 y, u8 color);
 extern bool btn(u8 button, u8 player);
 extern bool btnp(u8 button, u8 player);
+extern void putc(char c);
 
 #define BALL_W 8
 #define BALL_H 8
+#define DISPLAY_W 160
+#define DISPLAY_H 120
 
 typedef enum
 {
@@ -57,6 +60,14 @@ typedef struct
 static paddle_t paddles[2];
 static ball_t balls[1];
 static u32 seed;
+
+static void puts(const char* str)
+{
+	for (char* c = (char*)str; *c != 0; c += 1)
+	{
+		putc(*c);
+	}
+}
 
 static u32 rand()
 {
@@ -102,15 +113,17 @@ void _init()
 	balls[0].vel_x = 1;
 	balls[0].vel_y = 1;
 
-	paddles[0].pos_x = (128 / 2);
-	paddles[0].pos_y = 128 - 10;
+	paddles[0].pos_x = (DISPLAY_W / 2);
+	paddles[0].pos_y = DISPLAY_H - 10;
 	paddles[0].size_x = 30;
 	paddles[0].size_y = 6;
 	
-	paddles[1].pos_x = (128 / 2);
+	paddles[1].pos_x = (DISPLAY_W / 2);
 	paddles[1].pos_y = 10;
 	paddles[1].size_x = 40;
 	paddles[1].size_y = 6;
+
+	puts("Eat bicks :D\n");
 }
 
 void _update()
@@ -121,7 +134,7 @@ void _update()
 	balls[0].pos_x += balls[0].vel_x;
 	balls[0].pos_y += balls[0].vel_y;
 
-	paddles[1].pos_x = clamp(balls[0].pos_x, paddles[1].size_x / 2, 128 - (paddles[1].size_x / 2));
+	paddles[1].pos_x = clamp(balls[0].pos_x, paddles[1].size_x / 2, DISPLAY_W - (paddles[1].size_x / 2));
 
 	if (btn(BUTTON_DPAD_LEFT, 0))
 	{
@@ -135,15 +148,15 @@ void _update()
 	if (btn(BUTTON_DPAD_RIGHT, 0))
 	{
 		paddles[0].pos_x += 1;
-		if (paddles[0].pos_x + (paddles[0].size_x / 2) >= 128)
+		if (paddles[0].pos_x + (paddles[0].size_x / 2) >= DISPLAY_W)
 		{
-			paddles[0].pos_x = 128 - (paddles[0].size_x / 2);
+			paddles[0].pos_x = DISPLAY_W - (paddles[0].size_x / 2);
 		}
 	}
 
-	if (balls[0].pos_x + (BALL_W / 2) >= 128 || balls[0].pos_x - (BALL_W / 2) < 0)
+	if (balls[0].pos_x + (BALL_W / 2) >= DISPLAY_W || balls[0].pos_x - (BALL_W / 2) < 0)
 	{
-		balls[0].pos_x = clamp(balls[0].pos_x, BALL_W / 2, 128 - (BALL_W / 2));
+		balls[0].pos_x = clamp(balls[0].pos_x, BALL_W / 2, DISPLAY_W - (BALL_W / 2));
 		balls[0].vel_x *= -1;
 	}
 
@@ -154,7 +167,7 @@ void _update()
 		balls[0].vel_y = 1;
 	}
 	
-	if (balls[0].pos_y - (BALL_H / 2) >= 128)
+	if (balls[0].pos_y - (BALL_H / 2) >= DISPLAY_H)
 	{
 		balls[0].pos_x = 64 + ((rand() % 12) - 6);
 		balls[0].pos_y = 30;

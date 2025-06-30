@@ -228,8 +228,8 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv)
 
 	*appstate = vm;
 
-	vm->video.window_width = PPU_SCREEN_WIDTH * 8;
-	vm->video.window_height = PPU_SCREEN_HEIGHT * 8;
+	vm->video.window_width = PPU_SCREEN_WIDTH * 4;
+	vm->video.window_height = PPU_SCREEN_HEIGHT * 4;
 
 	vm->video.window = SDL_CreateWindow(":D", vm->video.window_width, vm->video.window_height, 0);
 	if (vm->video.window == NULL)
@@ -858,6 +858,13 @@ void execute(vm_t* vm)
 					}
 
 					vm->cpu.x[10] = is_pressed;
+				} break;
+
+				case 52: // putc
+				{
+					const char c = vm->cpu.x[10];
+
+					putc(c, stdout);
 				} break;
 
 				case 98:
@@ -1770,7 +1777,7 @@ void ppu_rectfill(ppu_t* ppu, i32 x, i32 y, i32 w, i32 h, u8 color)
 
 	i32 x0 = clamp(x, 0, PPU_SCREEN_WIDTH);
 	i32 y0 = clamp(y, 0, PPU_SCREEN_HEIGHT);
-	i32 x1 = clamp(x + w, 0, PPU_SCREEN_HEIGHT);
+	i32 x1 = clamp(x + w, 0, PPU_SCREEN_WIDTH);
 	i32 y1 = clamp(y + h, 0, PPU_SCREEN_HEIGHT);
 
 	for (i32 py = y0; py < y1; py += 1)
