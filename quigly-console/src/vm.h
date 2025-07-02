@@ -202,9 +202,6 @@ void ppu_line(ppu_t* ppu, i32 x0, i32 y0, i32 x1, i32 y1, u8 color);
 void ppu_spr(ppu_t* ppu, i32 n, i32 x, i32 y, bool flip_x, bool flip_y);
 void ppu_print(ppu_t* ppu, const char* text, i32 x, i32 y, u8 color);
 
-bool input_btn(input_t* input, u8 button, u8 player);
-bool input_btnp(input_t* input, u8 button, u8 player);
-
 bool is_key_down(vm_t* vm, SDL_Scancode scancode);
 bool is_key_pressed(vm_t* vm, SDL_Scancode scancode);
 

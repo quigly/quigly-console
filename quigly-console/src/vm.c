@@ -263,6 +263,26 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv)
 	vm->bus.dram.access_flags = ACCESS_FLAG_READ | ACCESS_FLAG_WRITE;
 	vm->bus.sram.access_flags = ACCESS_FLAG_READ | ACCESS_FLAG_WRITE;
 
+	{
+		FILE* fp = fopen("sram.bin", "rb");
+		if (fp != NULL)
+		{
+			fseek(fp, 0, SEEK_END);
+			const size_t size = ftell(fp);
+			fseek(fp, 0, SEEK_SET);
+
+			if (size != vm->bus.sram.size)
+			{
+				printf("sram.bin is an incorrect size!\n");
+				return SDL_APP_FAILURE;
+			}
+
+			fread(vm->bus.sram.memory, size, 1, fp);
+
+			fclose(fp);
+		}
+	}
+
 	size_t rom_size = 0;
 
 	printf("Loading rom file\n");
@@ -445,6 +465,14 @@ void SDL_AppQuit(void* appstate, SDL_AppResult result)
 {
 	vm_t* vm = appstate;
 
+	{
+		FILE* fp = fopen("sram.bin", "wb");
+		assert(fp != NULL);
+
+		fwrite(vm->bus.sram.memory, vm->bus.sram.size, 1, fp);
+
+		fclose(fp);
+	}
 }
 
 void execute(vm_t* vm)
@@ -1887,16 +1915,6 @@ void ppu_print(ppu_t* ppu, const char* text, i32 x, i32 y, u8 color)
 			}
 		}
 	}
-}
-
-bool input_btn(input_t* input, u8 button, u8 player)
-{
-	return false;
-}
-
-bool input_btnp(input_t* input, u8 button, u8 player)
-{
-	return false;
 }
 
 bool is_key_down(vm_t* vm, SDL_Scancode scancode)
