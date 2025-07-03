@@ -19,6 +19,7 @@
 .globl btn
 .globl btnp
 .globl putc
+.globl exit
 
 _start:
 	jal ra, _init
@@ -114,5 +115,10 @@ btnp:
 
 putc:
 	li a7, 52
+	ecall
+	ret
+
+exit:
+	li a7, 53
 	ecall
 	ret

@@ -895,6 +895,11 @@ void execute(vm_t* vm)
 					putc(c, stdout);
 				} break;
 
+				case 53: // exit
+				{
+					vm->running = false;
+				} break;
+
 				case 98:
 				{
 					vm->init_finished = true;

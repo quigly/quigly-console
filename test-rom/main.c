@@ -15,6 +15,7 @@ extern void print(const char* text, i32 x, i32 y, u8 color);
 extern bool btn(u8 button, u8 player);
 extern bool btnp(u8 button, u8 player);
 extern void putc(char c);
+extern void exit();
 
 #define BALL_W 8
 #define BALL_H 8
