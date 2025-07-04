@@ -1,5 +1,3 @@
-.section .text
-
 .globl _start
 .globl _init
 .globl _update
@@ -19,7 +17,9 @@
 .globl btn
 .globl btnp
 .globl putc
-.globl exit
+.globl shutdown
+
+.section .start
 
 _start:
 	jal ra, _init
@@ -28,6 +28,8 @@ _start:
 	li a7, 98
 	ecall
 	ebreak
+
+.section .text
 
 _gameloop:
 	addi sp, sp, -16
@@ -118,7 +120,7 @@ putc:
 	ecall
 	ret
 
-exit:
+shutdown:
 	li a7, 53
 	ecall
 	ret

@@ -1,24 +1,34 @@
+ENTRY(_start)
+
+MEMORY {
+	ROM (rx) : ORIGIN = 0x2000000, LENGTH = 32M
+	RAM (rw) : ORIGIN = 0x100000, LENGTH = 4M
+}
+
 SECTIONS
 {
-    . = 0x100000;
-
     .text : {
 		KEEP(*(.start))
-		*(.text)
 		*(.text*)
-        *(.rodata*)
-        *(.rodata* .rodata.*)
-        *(.sdata*)
-        *(.sbss*)
-    }
+    } > ROM
 
-    .data : {
-        *(.data)
-    }
+    .rodata : {
+		*(.rodata*)
+	} > ROM
 
-    .bss : {
-        *(.bss)
-    }
+	.data : {
+		__data_load = LOADADDR(.data);
+		__data_start = .;
+		*(.data*)
+		__data_end = .;
+	} > RAM AT > ROM
+
+	.bss : ALIGN(4) {
+		__bss_start = .;
+		*(.bss*)
+		*(COMMON)
+		__bss_end = .;
+	}
 
     /DISCARD/ : {
 		*(.eh_frame)

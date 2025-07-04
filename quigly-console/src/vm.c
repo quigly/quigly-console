@@ -256,12 +256,14 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv)
 	
 	if (!bus_init_device(&vm->bus, 0, "dram", MEGABYTES(1), MEGABYTES(4))) { return SDL_APP_FAILURE; }
 	if (!bus_init_device(&vm->bus, 1, "sram", MEGABYTES(100), MEGABYTES(1))) { return SDL_APP_FAILURE; }
+	if (!bus_init_device(&vm->bus, 2, "rom", MEGABYTES(32), MEGABYTES(32))) { return SDL_APP_FAILURE; }
 
 	vm->bus.sram.read_delay = 50;
-	vm->bus.sram.write_delay = 50;	
+	vm->bus.sram.write_delay = 50;
 
 	vm->bus.dram.access_flags = ACCESS_FLAG_READ | ACCESS_FLAG_WRITE;
 	vm->bus.sram.access_flags = ACCESS_FLAG_READ | ACCESS_FLAG_WRITE;
+	vm->bus.rom.access_flags = ACCESS_FLAG_READ;
 
 	{
 		FILE* fp = fopen("sram.bin", "rb");
@@ -283,34 +285,24 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv)
 		}
 	}
 
-	size_t rom_size = 0;
-
 	printf("Loading rom file\n");
 	{
 		FILE* fp = fopen(rom_path, "rb");
 
 		fseek(fp, 0, SEEK_END);
-		rom_size = ftell(fp);
+		const size_t rom_size = ftell(fp);
 		printf("Rom size: %lu bytes\n", rom_size);
 		fseek(fp, 0, SEEK_SET);
 	
-		if (!bus_init_device(&vm->bus, 2, "rom", GIGABYTES(3), rom_size)) { return SDL_APP_FAILURE; }
-
 		fread(vm->bus.rom.memory, rom_size, 1, fp);
 
 		fclose(fp);
-
-		vm->bus.rom.read_delay = 50;
-		vm->bus.rom.write_delay = 50;	
-		vm->bus.rom.access_flags = ACCESS_FLAG_READ;
-	
-		memcpy(vm->bus.dram.memory, vm->bus.rom.memory, rom_size);
 	}
 	
 	ppu_init(&vm->ppu);
 
-	vm->cpu.x[2] = vm->bus.dram.region.begin + MEGABYTES(2);
-	vm->cpu.pc = vm->bus.dram.region.begin;
+	vm->cpu.x[2] = vm->bus.dram.region.begin + MEGABYTES(1);
+	vm->cpu.pc = vm->bus.rom.region.begin;
 
 	vm->running = true;
 
@@ -1600,7 +1592,13 @@ void bus_write_32(bus_t* bus, cpu_t* cpu, u32 address, u32 value)
 		return;
 	}
 	
-	if ((device->access_flags & ACCESS_FLAG_WRITE) == 0) { unreachable; }
+	if ((device->access_flags & ACCESS_FLAG_WRITE) == 0)
+	{
+		printf("device: %s\n", device->label);
+		printf("sp: 0x%08X\n", cpu->x[2]);
+		printf("pc: 0x%08X\n", cpu->pc);
+		unreachable;
+	}
 	if (device->write_delay > 0) { SDL_Delay(device->read_delay); }
 
 	*(u32*)ptr = value;
