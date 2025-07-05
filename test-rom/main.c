@@ -1,4 +1,5 @@
 #include "language_layer.h"
+#include <stdarg.h>
 
 extern void camera(i32 x, i32 y);
 extern u8 pget(i32 x, i32 y);
@@ -16,6 +17,9 @@ extern bool btn(u8 button, u8 player);
 extern bool btnp(u8 button, u8 player);
 extern void putc(char c);
 extern void exit();
+
+extern u32 _heap_start;
+extern u32 _stack_top;
 
 #define BALL_W 8
 #define BALL_H 8
@@ -68,6 +72,96 @@ static void puts(const char* str)
 	{
 		putc(*c);
 	}
+}
+
+static inline void putu(u32 value)
+{
+	char buffer[10];
+	i32 i = 0;
+
+	if (value == 0)
+	{
+		putc('0');
+		return;
+	}
+
+	while (value != 0 && i < 10)
+	{
+		buffer[i] = '0' + (value % 10);
+		i += 1;
+		value /= 10;
+	}
+
+	for (i32 j = i - 1; j >= 0; j -= 1)
+	{
+		putc(buffer[j]);
+	}
+}
+
+static inline void puti(i32 value)
+{
+	if (value < 0)
+	{
+		putc('-');
+		value = -value;
+	}
+
+	putu((u32)value);
+}
+
+static inline void putsf(const char* fmt, ...)
+{
+	va_list args;
+	va_start(args, fmt);
+
+	while (*fmt)
+	{
+		if (*fmt == '%')
+		{
+			fmt += 1;
+
+			switch (*fmt)
+			{
+				case 'i':
+				{
+					puti(va_arg(args, i32));
+				} break;
+
+				case 'u':
+				{
+					putu(va_arg(args, u32));
+				} break;
+
+				case 'c':
+				{
+					putc(va_arg(args, i32));
+				} break;
+
+				case 's':
+				{
+					puts(va_arg(args, const char*));
+				} break;
+
+				case '%':
+				{
+					putc('%');
+				} break;
+
+				default:
+				{
+					putc('%');
+					putc(*fmt);
+				} break;
+			}
+		}
+		else
+		{
+			putc(*fmt);
+		}
+		fmt += 1;
+	}
+
+	va_end(args);
 }
 
 static u32 rand()
@@ -124,7 +218,8 @@ void _init()
 	paddles[1].size_x = 40;
 	paddles[1].size_y = 6;
 
-	puts("Eat bicks :D\n");
+	putsf("_heap_start: %u\n", &_heap_start);
+	putsf("_stack_top: %u\n", &_stack_top);
 }
 
 void _update()

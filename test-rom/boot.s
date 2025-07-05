@@ -22,9 +22,14 @@
 .section .start
 
 _start:
-	jal ra, _init
 	la t0, _gameloop
 	csrw 0x7C2, t0
+	
+	la sp, _stack_top
+#	addi sp, sp, -4
+	
+	jal ra, _init
+	
 	li a7, 98
 	ecall
 	ebreak

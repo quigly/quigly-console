@@ -84,6 +84,7 @@ typedef struct
 	u32 x_last[32];
 	u32 csrs[4096];
 	u32 pc;
+	u32 prev_pc;
 	u32 inst;
 	instruction_type_e inst_type;
 	instruction_id_e inst_id;
@@ -98,6 +99,7 @@ typedef struct
 	u32 shamt;
 	u32 shiftop;
 	u32 csr;
+	u64 cycles;
 } cpu_t;
 
 typedef struct

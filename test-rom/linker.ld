@@ -7,16 +7,18 @@ MEMORY {
 
 SECTIONS
 {
-    .text : {
+    .text : ALIGN(4) {
 		KEEP(*(.start))
 		*(.text*)
+		*(.srodata*)
+		*(.nodata*)
     } > ROM
 
-    .rodata : {
+    .rodata : ALIGN(4) {
 		*(.rodata*)
 	} > ROM
 
-	.data : {
+	.data : ALIGN(4) {
 		__data_load = LOADADDR(.data);
 		__data_start = .;
 		*(.data*)
@@ -29,8 +31,9 @@ SECTIONS
 		*(COMMON)
 		__bss_end = .;
 	}
-
-    /DISCARD/ : {
-		*(.eh_frame)
-    }
+	
+	/DISCARD/ : { *(.comment) *(.gnu*) *(.note*) *(.eh_frame*) }
 }
+
+_heap_start = __bss_end;
+_stack_top = 0x500000 - 16;

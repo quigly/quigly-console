@@ -301,7 +301,7 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv)
 	
 	ppu_init(&vm->ppu);
 
-	vm->cpu.x[2] = vm->bus.dram.region.begin + MEGABYTES(1);
+	// vm->cpu.x[2] = vm->bus.dram.region.begin + MEGABYTES(1);
 	vm->cpu.pc = vm->bus.rom.region.begin;
 
 	vm->running = true;
@@ -469,11 +469,40 @@ void SDL_AppQuit(void* appstate, SDL_AppResult result)
 
 void execute(vm_t* vm)
 {
+	vm->cpu.x[0] = 0;
+
+	if ((vm->cpu.pc % 4) != 0)
+	{
+		printf("prev_pc: 0x%08X\n", vm->cpu.prev_pc);
+		printf("pc: 0x%08X\n", vm->cpu.pc);
+		printf("cycles: %lu\n", vm->cpu.cycles);
+
+		for (size_t i = 0; i < 32; i += 1)
+		{
+			printf("[%s]: 0x%X\n", register_names[i], vm->cpu.x[i]);
+		}
+	}
 	assert((vm->cpu.pc % 4) == 0);
+
+	vm->cpu.prev_pc = vm->cpu.pc;
+
 	const u32 inst = bus_read_32(&vm->bus, &vm->cpu, vm->cpu.pc);
 	// printf("[%08X] %08X\n", vm->cpu.pc, inst);
 	// printf("inst: 0x%08X\n", inst);
-	if (inst == 0) { unreachable; }
+	if (inst == 0)
+	{
+		printf("prev_pc: 0x%08X\n", vm->cpu.prev_pc);
+		printf("pc: 0x%08X\n", vm->cpu.pc);
+		printf("cycles: %lu\n", vm->cpu.cycles);
+		printf("inst: 0x%08X\n", inst);
+
+		for (size_t i = 0; i < 32; i += 1)
+		{
+			printf("[%s]: 0x%X\n", register_names[i], vm->cpu.x[i]);
+		}
+
+		unreachable;
+	}
 
 	cpu_decode(&vm->cpu, inst);
 
@@ -482,8 +511,6 @@ void execute(vm_t* vm)
 	#if VM_DEBUG_INSTRUCTIONS
 	printf("[%08X] %s\n", vm->cpu.pc, instruction_names[vm->cpu.inst_id]);
 	#endif
-
-	vm->cpu.x[0] = 0;
 
 	switch (vm->cpu.inst_id)
 	{
@@ -1213,7 +1240,24 @@ void execute(vm_t* vm)
 		} break;
 	}
 
+	if (next_pc == 0)
+	{
+		printf("prev_pc: 0x%08X\n", vm->cpu.prev_pc);
+		printf("pc: 0x%08X\n", vm->cpu.pc);
+		printf("next_pc: 0x%08X\n", next_pc);
+		printf("cycles: %lu\n", vm->cpu.cycles);
+		printf("inst: 0x%08X\n", inst);
+
+		for (size_t i = 0; i < 32; i += 1)
+		{
+			printf("[%s]: 0x%X\n", register_names[i], vm->cpu.x[i]);
+		}
+
+		unreachable;
+	}
+
 	vm->cpu.pc = next_pc;
+	vm->cpu.cycles += 1;
 
 #if 0
 	for (i32 i = 0; i < 32; i += 1)
@@ -1509,6 +1553,7 @@ u8 bus_read_8(bus_t* bus, cpu_t* cpu, u32 address)
 	if (ptr == NULL)
 	{
 		// TODO: handle invalid address
+		unreachable;
 		return 0;
 	}
 
@@ -1525,6 +1570,7 @@ u16 bus_read_16(bus_t* bus, cpu_t* cpu, u32 address)
 	if (ptr == NULL)
 	{
 		// TODO: handle invalid address
+		unreachable;
 		return 0;
 	}
 	
@@ -1541,6 +1587,7 @@ u32 bus_read_32(bus_t* bus, cpu_t* cpu, u32 address)
 	if (ptr == NULL)
 	{
 		// TODO: handle invalid address
+		unreachable;
 		return 0;
 	}
 
@@ -1557,6 +1604,7 @@ void bus_write_8(bus_t* bus, cpu_t* cpu, u32 address, u8 value)
 	if (ptr == NULL)
 	{
 		// TODO: handle invalid address
+		unreachable;
 		return;
 	}
 	
@@ -1573,6 +1621,7 @@ void bus_write_16(bus_t* bus, cpu_t* cpu, u32 address, u16 value)
 	if (ptr == NULL)
 	{
 		// TODO: handle invalid address
+		unreachable;
 		return;
 	}
 	
@@ -1589,6 +1638,11 @@ void bus_write_32(bus_t* bus, cpu_t* cpu, u32 address, u32 value)
 	if (ptr == NULL)
 	{
 		// TODO: handle invalid address
+
+		printf("bus_write_32(0x%08X, 0x%X)\n", address, value);
+		printf("pc: 0x%08X\n", cpu->pc);
+
+		unreachable;
 		return;
 	}
 	
