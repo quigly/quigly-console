@@ -5,15 +5,12 @@
 .globl camera
 .globl pget
 .globl pset
-.globl pal
-.globl palt
 .globl cls
 .globl clip
 .globl rect
 .globl rectfill
 .globl line
 .globl spr
-.globl print
 .globl btn
 .globl btnp
 .globl putc
@@ -65,16 +62,6 @@ pset:
 	ecall
 	ret
 
-pal:
-	li a7, 103
-	ecall
-	ret
-
-palt:
-	li a7, 104
-	ecall
-	ret
-
 cls:
 	li a7, 105
 	ecall
@@ -102,11 +89,6 @@ line:
 
 spr:
 	li a7, 110
-	ecall
-	ret
-
-print:
-	li a7, 111
 	ecall
 	ret
 

@@ -4,15 +4,12 @@
 extern void camera(i32 x, i32 y);
 extern u8 pget(i32 x, i32 y);
 extern void pset(i32 x, i32 y, u8 color);
-extern void pal(u8 c0, u8 c1);
-extern void palt(u8 color, u8 transparent);
 extern void cls(u8 color);
 extern void clip(i32 x, i32 y, i32 w, i32 h);
 extern void rect(i32 x, i32 y, i32 w, i32 h, u8 color);
 extern void rectfill(i32 x, i32 y, i32 w, i32 h, u8 color);
 extern void line(i32 x0, i32 y0, i32 x1, i32 y1, u8 color);
-extern void spr(i32 n, i32 x, i32 y, u8 flip_x, u8 flip_y);
-extern void print(const char* text, i32 x, i32 y, u8 color);
+extern void spr(i32 n, i32 x, i32 y, const u8* sprites, u8 colors[4], u32 bits);
 extern bool btn(u8 button, u8 player);
 extern bool btnp(u8 button, u8 player);
 extern void putc(char c);
@@ -65,6 +62,12 @@ typedef struct
 static paddle_t paddles[2];
 static ball_t balls[1];
 static u32 seed;
+static bool show_palette;
+
+static const u8 sprites[] =
+{
+	#embed "../sprites.bin"
+};
 
 static void puts(const char* str)
 {
@@ -210,12 +213,12 @@ void _init()
 
 	paddles[0].pos_x = (DISPLAY_W / 2);
 	paddles[0].pos_y = DISPLAY_H - 10;
-	paddles[0].size_x = 30;
+	paddles[0].size_x = 32;
 	paddles[0].size_y = 6;
 	
 	paddles[1].pos_x = (DISPLAY_W / 2);
 	paddles[1].pos_y = 10;
-	paddles[1].size_x = 40;
+	paddles[1].size_x = 32;
 	paddles[1].size_y = 6;
 
 	putsf("_heap_start: %u\n", &_heap_start);
@@ -231,6 +234,20 @@ void _update()
 	balls[0].pos_y += balls[0].vel_y;
 
 	paddles[1].pos_x = clamp(balls[0].pos_x, paddles[1].size_x / 2, DISPLAY_W - (paddles[1].size_x / 2));
+
+	if (btnp(BUTTON_A, 0))
+	{
+		show_palette = !show_palette;
+
+		if (show_palette)
+		{
+			puts("Showing palette\n");
+		}
+		else
+		{
+			puts("Hiding palette\n");
+		}
+	}
 
 	if (btn(BUTTON_DPAD_LEFT, 0))
 	{
@@ -285,6 +302,16 @@ void _update()
 	}
 }
 
+static void draw_paddle(u32 i)
+{
+	u8 colors[4] = { 8, 26, 27, 28 };
+//	putsf("array size: %u\n", sizeof(colors));
+	spr(1, paddles[i].pos_x - (paddles[i].size_x / 2), paddles[i].pos_y - (paddles[i].size_y / 2), sprites, colors, 0);
+	spr(2, paddles[i].pos_x - (paddles[i].size_x / 2) + 8, paddles[i].pos_y - (paddles[i].size_y / 2), sprites, colors, 0);
+	spr(3, paddles[i].pos_x - (paddles[i].size_x / 2) + 16, paddles[i].pos_y - (paddles[i].size_y / 2), sprites, colors, 0);
+	spr(4, paddles[i].pos_x - (paddles[i].size_x / 2) + 24, paddles[i].pos_y - (paddles[i].size_y / 2), sprites, colors, 0);
+}
+
 void _draw()
 {
 	cls(0);
@@ -312,9 +339,40 @@ void _draw()
 	spr(0, 50, 50, false, false);
 	palt(0, false);*/
 
-	rectfill(paddles[0].pos_x - (paddles[0].size_x / 2), paddles[0].pos_y - (paddles[0].size_y / 2), paddles[0].size_x, paddles[0].size_y, 7);
-	rectfill(paddles[1].pos_x - (paddles[1].size_x / 2), paddles[1].pos_y - (paddles[1].size_y / 2), paddles[1].size_x, paddles[1].size_y, 7);
+	{
+		// u8 colors[4] = { 0, 1, 2, 3 };
+		//rectfill(paddles[0].pos_x - (paddles[0].size_x / 2), paddles[0].pos_y - (paddles[0].size_y / 2), paddles[0].size_x, paddles[0].size_y, 7);
+		//rectfill(paddles[1].pos_x - (paddles[1].size_x / 2), paddles[1].pos_y - (paddles[1].size_y / 2), paddles[1].size_x, paddles[1].size_y, 7);
 
-	rectfill(balls[0].pos_x - (BALL_W / 2), balls[0].pos_y - (BALL_H / 2), BALL_W, BALL_H, 7);
+		draw_paddle(0);
+		draw_paddle(1);
+	}
+
+	// rectfill(balls[0].pos_x - (BALL_W / 2), balls[0].pos_y - (BALL_H / 2), BALL_W, BALL_H, 7);
+	{
+		u8 colors[4] = { 0, 16, 17, 18 };
+		spr(0, balls[0].pos_x - (BALL_W / 2), balls[0].pos_y - (BALL_H / 2), sprites, colors, 0);
+	}
+
+	if (show_palette)
+	{
+		i32 x = 0;
+		i32 y = 0;
+
+		for (u32 i = 0; i < 256; i += 1)
+		{
+			// pset(i % 256, i / 256, i);
+			rectfill(x, y, 8, 8, i);
+			if ((x + 8) > 160)
+			{
+				x = 0;
+				y += 8;
+			}
+			else
+			{
+				x += 8;
+			}
+		}
+	}
 }
 

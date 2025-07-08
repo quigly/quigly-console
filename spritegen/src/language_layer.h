@@ -1,7 +1,29 @@
 #pragma once
 
 #include <stdint.h>
-#include <stdbool.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <float.h>
+#include <time.h>
+#include <string.h>
+
+#define PLATFORM_WINDOWS 0
+#define PLATFORM_LINUX 1
+#define PLATFORM_MACOS 2
+#define PLATFORM_IOS 3
+#define PLATFORM_ANDROID 4
+
+#if defined(WIN32) || defined(_WIN32) || defined(__WIN32__)
+	#define PLATFORM PLATFORM_WINDOWS
+#elif defined(__linux__) || defined(__gnu_linux__)
+	#define PLATFORM PLATFORM_LINUX
+#endif
+
+#if defined(_WIN32) || defined(_WIN64)
+	#define __FILENAME__ (strrchr(__FILE__, '\\') ? strrchr(__FILE__, '\\') + 1 : __FILE__)
+#else
+	#define __FILENAME__ (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
+#endif
 
 typedef int8_t i8;
 typedef int16_t i16;
@@ -15,6 +37,8 @@ typedef uint64_t u64;
 
 typedef float f32;
 typedef double f64;
+
+typedef u8 bool;
 
 #define true 1
 #define false 0
@@ -38,6 +62,8 @@ typedef double f64;
 #define U32_MIN 0
 #define U64_MIN 0
 
+#define F32_MAX __FLT_MAX__
+
 #define U8_MAX  0xFF
 #define U16_MAX 0xFFFF
 #define U32_MAX 0xFFFFFFFF
@@ -55,11 +81,13 @@ typedef double f64;
 #define max(a,b) (((a)>(b))?(a):(b))
 #define clamp(value,low,high) ((value)<(low)?(low):((value)>(high)?(high):(value)))
 
-#if 0
 #define unreachable\
 	printf("Reached unreachable code at %s:%u\n", __FILE__, __LINE__); exit(1)
 
+#ifdef DEBUG
 #define assert(expr) if (!(expr)) { printf("Assert failed at %s:%i\n", __FILE__, __LINE__); exit(1); }
+#else
+#define assert(expr)
 #endif
 
 static inline void mem_swap_byte(u8* a, u8* b)
@@ -69,7 +97,7 @@ static inline void mem_swap_byte(u8* a, u8* b)
 	*b = tmp;
 }
 
-static inline void mem_swap(void* a, void* b, u32 size)
+static inline void mem_swap(void* a, void* b, size_t size)
 {
 	u8* x = (u8*)a;
 	u8* y = (u8*)b;

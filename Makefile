@@ -9,17 +9,25 @@ ifndef verbose
 endif
 
 ifeq ($(config),debug)
+  spritegen_config = debug
   quigly_console_config = debug
 endif
 ifeq ($(config),release)
+  spritegen_config = release
   quigly_console_config = release
 endif
 
-PROJECTS := quigly-console
+PROJECTS := spritegen quigly-console
 
 .PHONY: all clean help $(PROJECTS) 
 
 all: $(PROJECTS)
+
+spritegen:
+ifneq (,$(spritegen_config))
+	@echo "==== Building spritegen ($(spritegen_config)) ===="
+	@${MAKE} --no-print-directory -C spritegen -f Makefile config=$(spritegen_config)
+endif
 
 quigly-console:
 ifneq (,$(quigly_console_config))
@@ -28,6 +36,7 @@ ifneq (,$(quigly_console_config))
 endif
 
 clean:
+	@${MAKE} --no-print-directory -C spritegen -f Makefile clean
 	@${MAKE} --no-print-directory -C quigly-console -f Makefile clean
 
 help:
@@ -40,6 +49,7 @@ help:
 	@echo "TARGETS:"
 	@echo "   all (default)"
 	@echo "   clean"
+	@echo "   spritegen"
 	@echo "   quigly-console"
 	@echo ""
 	@echo "For more information, see https://github.com/premake/premake-core/wiki"

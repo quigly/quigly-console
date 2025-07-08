@@ -7,4 +7,5 @@ workspace "Quigly Console"
 
 	outputdir = "bin"
 
+include "spritegen"
 include "quigly-console"

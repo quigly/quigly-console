@@ -954,21 +954,21 @@ void execute(vm_t* vm)
 					ppu_pset(&vm->ppu, x, y, color);
 				} break;
 
-				case 103: // pal
+				/* case 103: // pal
 				{
 					const u8 c0 = vm->cpu.x[10];
 					const u8 c1 = vm->cpu.x[11];
 
 					ppu_pal(&vm->ppu, c0, c1);
-				} break;
+				} break; */
 				
-				case 104: // palt
+				/*case 104: // palt
 				{
 					const u8 color = vm->cpu.x[10];
 					const bool transparent = vm->cpu.x[11];
 
 					ppu_palt(&vm->ppu, color, transparent);
-				} break;
+				} break;*/
 
 				case 105: // cls
 				{
@@ -1025,13 +1025,24 @@ void execute(vm_t* vm)
 					const i32 n = *(i32*)&vm->cpu.x[10];
 					const i32 x = *(i32*)&vm->cpu.x[11];
 					const i32 y = *(i32*)&vm->cpu.x[12];
-					const bool flip_x = vm->cpu.x[13];
-					const bool flip_y = vm->cpu.x[14];
+					const u32 sprites_addr =  vm->cpu.x[13];
+					const u32 colors_addr = vm->cpu.x[14];
+					const bool bits = vm->cpu.x[15];
 
-					ppu_spr(&vm->ppu, n, x, y, flip_x, flip_y);
+					bus_device_t* device;
+
+					u8* sprites = bus_get_pointer(&vm->bus, &device, sprites_addr, 4);
+					if (sprites == NULL) { unreachable; }
+					if (!(device->access_flags & ACCESS_FLAG_READ)) { unreachable; }
+
+					u8* colors = bus_get_pointer(&vm->bus, &device, colors_addr, 4);
+					if (colors == NULL) { unreachable; }
+					if (!(device->access_flags & ACCESS_FLAG_READ)) { unreachable; }
+
+					ppu_spr(&vm->ppu, n, x, y, sprites, colors, bits);
 				} break;
 				
-				case 111: // print
+				/*case 111: // print
 				{
 					const u32 text_addr = *(u32*)&vm->cpu.x[10];
 					bus_device_t* device;
@@ -1045,7 +1056,7 @@ void execute(vm_t* vm)
 					// printf("print(\"%s\", %i, %i, %u)\n", text, x, y, color);
 
 					ppu_print(&vm->ppu, text, x, y, color);
-				} break;
+				} break;*/
 
 				default:
 				{
@@ -1696,7 +1707,7 @@ void ppu_import(ppu_t* ppu, const char* path, u8* dst, i32 dst_width, i32 dst_he
 
 			bool found_color = false;
 
-			for (u32 j = 0; j < 16; j += 1)
+			for (u32 j = 0; j < PPU_COLOR_COUNT; j += 1)
 			{
 				const u32 pal_color = ppu->palette[j];
 				const u8* pal_rgba = (u8*)&pal_color;
@@ -1710,20 +1721,20 @@ void ppu_import(ppu_t* ppu, const char* path, u8* dst, i32 dst_width, i32 dst_he
 			}
 
 			if (found_color) { continue; }
-			printf("[%i](%02X, %02X, %02X)\n", i, r, g, b);
-			for (u32 j = 0; j < 16; j += 1)
+			// printf("[%i](%02X, %02X, %02X)\n", i, r, g, b);
+			/*for (u32 j = 0; j < 16; j += 1)
 			{
 				const u32 pal_color = ppu->palette[j];
 				const u8* pal_rgba = (u8*)&pal_color;
 
 				printf("  [%02X, %02X, %02X]\n", pal_rgba[0], pal_rgba[1], pal_rgba[2]);
 			}
-			unreachable;
+			unreachable;*/
 
 			u32 closest_color_index = 0;
 			u32 min_distance = U32_MAX;
 			
-			for (u32 j = 0; j < 16; j += 1)
+			for (u32 j = 0; j < PPU_COLOR_COUNT; j += 1)
 			{
 				const u32 pal_color = ppu->palette[j];
 				const u8* pal_rgba = (u8*)&pal_color;
@@ -1758,21 +1769,16 @@ void ppu_init(ppu_t* ppu)
 		assert(src != NULL);
 		assert(comp == 4);
 
-		for (u32 i = 0; i < 16; i += 1)
+		for (u32 i = 0; i < PPU_COLOR_COUNT; i += 1)
 		{
 			memcpy(&ppu->palette[i], &src[i * 4], 4);
 		}
 	
 		stbi_image_free(src);
-
-		for (i32 i = 0; i < 16; i += 1)
-		{
-			printf("palette[%i]: 0x%08X\n", i, ppu->palette[i]);
-		}
 	}
 
-	ppu_import(ppu, "font.png", ppu->font_pixels, 128, 128);
-	ppu_import(ppu, "sprites.png", ppu->sprite_pixels, 128, 128);
+	// ppu_import(ppu, "font.png", ppu->font_pixels, 128, 128);
+	// ppu_import(ppu, "sprites.png", ppu->sprite_pixels, 128, 128);
 }
 
 void ppu_camera(ppu_t* ppu, i32 x, i32 y)
@@ -1794,11 +1800,6 @@ u8 ppu_pget(ppu_t* ppu, i32 x, i32 y)
 
 void ppu_pset(ppu_t* ppu, i32 x, i32 y, u8 color)
 {
-	if (ppu->palette_transparent[color])
-	{
-		return;
-	}
-
 	assert(ppu->pixels != NULL);
 
 	const i32 index = x + y * PPU_SCREEN_WIDTH;
@@ -1811,7 +1812,7 @@ void ppu_pset(ppu_t* ppu, i32 x, i32 y, u8 color)
 	ppu->pixels[index] = ppu->palette[color];
 }
 
-void ppu_pal(ppu_t* ppu, u8 c0, u8 c1)
+/*void ppu_pal(ppu_t* ppu, u8 c0, u8 c1)
 {
 	assert(c0 < 16);
 	assert(c1 < 16);
@@ -1826,7 +1827,7 @@ void ppu_palt(ppu_t* ppu, u8 color, bool transparent)
 	assert(color < 16);
 
 	ppu->palette_transparent[color] = transparent;
-}
+}*/
 
 void ppu_cls(ppu_t* ppu, u8 color)
 {
@@ -1907,8 +1908,11 @@ void ppu_line(ppu_t* ppu, i32 x0, i32 y0, i32 x1, i32 y1, u8 color)
 	}
 }
 
-void ppu_spr(ppu_t* ppu, i32 n, i32 x, i32 y, bool flip_x, bool flip_y)
+void ppu_spr(ppu_t* ppu, i32 n, i32 x, i32 y, u8* sprites, u8* colors, u32 bits)
 {
+//	printf("ppu_spr(%i, %i, %i, %p, { %u, %u, %u, %u }, %u)\n",
+//		n, x, y, sprites, colors[0], colors[1], colors[2], colors[3], bits);
+
 	x -= ppu->camera_x;
 	y -= ppu->camera_y;
 
@@ -1925,13 +1929,23 @@ void ppu_spr(ppu_t* ppu, i32 n, i32 x, i32 y, bool flip_x, bool flip_y)
 	{
 		for (u32 ox = 0; ox < 8; ox += 1)
 		{
-			const u32 src_x = (sprite_x * 8) + ox;
-			const u32 src_y = (sprite_y * 8) + oy;
+			const i32 absolute_x = sprite_x * 8 + ox;
+			const i32 absolute_y = sprite_y * 8 + oy;
+
+			const u32 bit_offset = (absolute_x + absolute_y * 128) * 2;
+			const u32 byte_index = bit_offset / 8;
+			const u32 bit_index = bit_offset % 8;
+
+			const u8 byte = sprites[byte_index];
+			const u8 shift = bit_index;
+			const u8 value = (byte >> shift) & 0x3;
+
+			if (value == 0b00) { continue; }
+
+			const u8 color = colors[value];
+
 			const u32 dst_x = x + ox;
 			const u32 dst_y = y + oy;
-			const u32 src_index = src_y * 128 + src_x;
-			assert(src_index < (128 * 128));
-			u8 color = ppu->sprite_pixels[src_index];
 			if (dst_x >= PPU_SCREEN_WIDTH) { continue; }
 			if (dst_y >= PPU_SCREEN_HEIGHT) { continue; }
 			ppu_pset(ppu, dst_x, dst_y, color);
@@ -1939,7 +1953,7 @@ void ppu_spr(ppu_t* ppu, i32 n, i32 x, i32 y, bool flip_x, bool flip_y)
 	}
 }
 
-void ppu_print(ppu_t* ppu, const char* text, i32 x, i32 y, u8 color)
+/*void ppu_print(ppu_t* ppu, const char* text, i32 x, i32 y, u8 color)
 {
 	x -= ppu->camera_x;
 	y -= ppu->camera_y;
@@ -1972,7 +1986,7 @@ void ppu_print(ppu_t* ppu, const char* text, i32 x, i32 y, u8 color)
 			}
 		}
 	}
-}
+}*/
 
 bool is_key_down(vm_t* vm, SDL_Scancode scancode)
 {
@@ -1984,8 +1998,4 @@ bool is_key_pressed(vm_t* vm, SDL_Scancode scancode)
 	return vm->input.key_states[scancode].is_down &&
 		vm->input.key_states[scancode].tick_down == vm->time.ticks;
 }
-
-
-
-
 

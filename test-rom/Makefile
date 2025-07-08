@@ -2,7 +2,7 @@ CC = riscv32-unknown-elf-gcc
 LD = riscv32-unknown-elf-gcc
 COMMONFLAGS = -Os -nostdlib -ffreestanding -nostartfiles -march=rv32im_zicsr -mabi=ilp32
 CFLAGS = $(COMMONFLAGS) -mabi=ilp32
-LDFLAGS = $(COMMONFLAGS) -mabi=ilp32
+LDFLAGS = $(COMMONFLAGS) -mabi=ilp32 
 
 testrom.bin: build.c
 	@ echo "Building objects"
