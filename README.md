@@ -1,6 +1,6 @@
 # Quigly Console
 
-Quigly Console is an open source retro fantasy console emulator that focuses on creativity under constaints.
+Quigly Console is an open source retro fantasy console emulator that focuses on creativity under constraints.
 
 ---
 
@@ -18,7 +18,7 @@ Quigly Console is an open source retro fantasy console emulator that focuses on 
 
 ### Test-rom Project
 
-For a demonstation of a game in the emulator, see the test-rom project. This project is written in C, howerver, any language that supports risc-v rv32im build targets will work in this environment. If you want to add an example project for another programming language, please feel free to contribute!
+For a demonstration of a game in the emulator, see the test-rom project. This project is written in C, however, any language that supports risc-v rv32im build targets will work in this environment. If you want to add an example project for another programming language, please feel free to contribute!
 
 ---
 
