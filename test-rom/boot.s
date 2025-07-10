@@ -10,7 +10,10 @@
 .globl rect
 .globl rectfill
 .globl line
+.globl pal
+.globl spr_data
 .globl spr
+.globl tile
 .globl btn
 .globl btnp
 .globl putc
@@ -87,8 +90,23 @@ line:
 	ecall
 	ret
 
-spr:
+pal:
 	li a7, 110
+	ecall
+	ret
+
+spr_data:
+	li a7, 111
+	ecall
+	ret
+
+spr:
+	li a7, 112
+	ecall
+	ret
+
+tile:
+	li a7, 113
 	ecall
 	ret
 

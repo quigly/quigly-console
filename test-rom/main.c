@@ -1,37 +1,10 @@
-#include "language_layer.h"
+#include "qc/qc.h"
 #include <stdarg.h>
-
-extern void camera(i32 x, i32 y);
-extern u8 pget(i32 x, i32 y);
-extern void pset(i32 x, i32 y, u8 color);
-extern void cls(u8 color);
-extern void clip(i32 x, i32 y, i32 w, i32 h);
-extern void rect(i32 x, i32 y, i32 w, i32 h, u8 color);
-extern void rectfill(i32 x, i32 y, i32 w, i32 h, u8 color);
-extern void line(i32 x0, i32 y0, i32 x1, i32 y1, u8 color);
-extern void spr(i32 n, i32 x, i32 y, const u8* sprites, u8 colors[4], u32 bits);
-extern bool btn(u8 button, u8 player);
-extern bool btnp(u8 button, u8 player);
-extern void putc(char c);
-extern void exit();
-
-extern u32 _heap_start;
-extern u32 _stack_top;
 
 #define BALL_W 8
 #define BALL_H 8
 #define DISPLAY_W 160
 #define DISPLAY_H 120
-
-typedef enum
-{
-	BUTTON_DPAD_LEFT,
-	BUTTON_DPAD_RIGHT,
-	BUTTON_DPAD_UP,
-	BUTTON_DPAD_DOWN,
-	BUTTON_A,
-	BUTTON_B
-} button_e;
 
 typedef struct
 {
@@ -62,9 +35,7 @@ typedef struct
 static paddle_t paddles[2];
 static ball_t balls[1];
 static u32 seed;
-static bool show_palette;
-
-static const u8 sprites[] =
+const static u8 sprites[] =
 {
 	#embed "../sprites.bin"
 };
@@ -173,7 +144,7 @@ static u32 rand()
 	return seed;
 }
 
-static bool rect_intersects(rect_t a, rect_t b)
+static b8 rect_intersects(rect_t a, rect_t b)
 {
 	if (a.x1 < b.x0) { return false; }
 	if (a.y1 < b.y0) { return false; }
@@ -183,7 +154,7 @@ static bool rect_intersects(rect_t a, rect_t b)
 	return true;
 }
 
-static bool check_collision(const ball_t* ball, const paddle_t* paddle)
+static b8 check_collision(const ball_t* ball, const paddle_t* paddle)
 {
 	const rect_t paddle_rect = (rect_t)
 	{
@@ -235,21 +206,7 @@ void _update()
 
 	paddles[1].pos_x = clamp(balls[0].pos_x, paddles[1].size_x / 2, DISPLAY_W - (paddles[1].size_x / 2));
 
-	if (btnp(BUTTON_A, 0))
-	{
-		show_palette = !show_palette;
-
-		if (show_palette)
-		{
-			puts("Showing palette\n");
-		}
-		else
-		{
-			puts("Hiding palette\n");
-		}
-	}
-
-	if (btn(BUTTON_DPAD_LEFT, 0))
+	if (btn(BUTTON_LEFT, 0))
 	{
 		paddles[0].pos_x -= 1;
 		if (paddles[0].pos_x - (paddles[0].size_x / 2) < 0)
@@ -258,7 +215,7 @@ void _update()
 		}
 	}
 	
-	if (btn(BUTTON_DPAD_RIGHT, 0))
+	if (btn(BUTTON_RIGHT, 0))
 	{
 		paddles[0].pos_x += 1;
 		if (paddles[0].pos_x + (paddles[0].size_x / 2) >= DISPLAY_W)
@@ -304,12 +261,12 @@ void _update()
 
 static void draw_paddle(u32 i)
 {
-	u8 colors[4] = { 8, 26, 27, 28 };
-//	putsf("array size: %u\n", sizeof(colors));
-	spr(1, paddles[i].pos_x - (paddles[i].size_x / 2), paddles[i].pos_y - (paddles[i].size_y / 2), sprites, colors, 0);
-	spr(2, paddles[i].pos_x - (paddles[i].size_x / 2) + 8, paddles[i].pos_y - (paddles[i].size_y / 2), sprites, colors, 0);
-	spr(3, paddles[i].pos_x - (paddles[i].size_x / 2) + 16, paddles[i].pos_y - (paddles[i].size_y / 2), sprites, colors, 0);
-	spr(4, paddles[i].pos_x - (paddles[i].size_x / 2) + 24, paddles[i].pos_y - (paddles[i].size_y / 2), sprites, colors, 0);
+	spr_data(sprites, 256);
+	pal(RGB(0, 0, 0), RGB(31, 0, 0), RGB(0, 31, 0), RGB(0, 0, 31));
+	spr(1, paddles[i].pos_x - (paddles[i].size_x / 2), paddles[i].pos_y - (paddles[i].size_y / 2), 0);
+	spr(2, paddles[i].pos_x - (paddles[i].size_x / 2) + 8, paddles[i].pos_y - (paddles[i].size_y / 2), 0);
+	spr(3, paddles[i].pos_x - (paddles[i].size_x / 2) + 16, paddles[i].pos_y - (paddles[i].size_y / 2), 0);
+	spr(4, paddles[i].pos_x - (paddles[i].size_x / 2) + 24, paddles[i].pos_y - (paddles[i].size_y / 2), 0);
 }
 
 void _draw()
@@ -350,29 +307,9 @@ void _draw()
 
 	// rectfill(balls[0].pos_x - (BALL_W / 2), balls[0].pos_y - (BALL_H / 2), BALL_W, BALL_H, 7);
 	{
-		u8 colors[4] = { 0, 16, 17, 18 };
-		spr(0, balls[0].pos_x - (BALL_W / 2), balls[0].pos_y - (BALL_H / 2), sprites, colors, 0);
-	}
-
-	if (show_palette)
-	{
-		i32 x = 0;
-		i32 y = 0;
-
-		for (u32 i = 0; i < 256; i += 1)
-		{
-			// pset(i % 256, i / 256, i);
-			rectfill(x, y, 8, 8, i);
-			if ((x + 8) > 160)
-			{
-				x = 0;
-				y += 8;
-			}
-			else
-			{
-				x += 8;
-			}
-		}
+		spr_data(sprites, 256);
+		pal(RGB(0, 0, 0), RGB(31, 0, 0), RGB(0, 31, 0), RGB(0, 0, 31));
+		spr(0, balls[0].pos_x - (BALL_W / 2), balls[0].pos_y - (BALL_H / 2), 0);
 	}
 }
 

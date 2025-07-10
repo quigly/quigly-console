@@ -949,30 +949,14 @@ void execute(vm_t* vm)
 				{
 					const i32 x = *(i32*)&vm->cpu.x[10];
 					const i32 y = *(i32*)&vm->cpu.x[11];
-					const u8 color = vm->cpu.x[12];
+					const u16 color = vm->cpu.x[12];
 
 					ppu_pset(&vm->ppu, x, y, color);
 				} break;
 
-				/* case 103: // pal
-				{
-					const u8 c0 = vm->cpu.x[10];
-					const u8 c1 = vm->cpu.x[11];
-
-					ppu_pal(&vm->ppu, c0, c1);
-				} break; */
-				
-				/*case 104: // palt
-				{
-					const u8 color = vm->cpu.x[10];
-					const bool transparent = vm->cpu.x[11];
-
-					ppu_palt(&vm->ppu, color, transparent);
-				} break;*/
-
 				case 105: // cls
 				{
-					const u8 color = vm->cpu.x[10];
+					const u16 color = vm->cpu.x[10];
 
 					ppu_cls(&vm->ppu, color);
 				} break;
@@ -993,7 +977,7 @@ void execute(vm_t* vm)
 					const i32 y = *(i32*)&vm->cpu.x[11];
 					const i32 w = *(i32*)&vm->cpu.x[12];
 					const i32 h = *(i32*)&vm->cpu.x[13];
-					const u8 color = vm->cpu.x[14];
+					const u16 color = vm->cpu.x[14];
 
 					ppu_rect(&vm->ppu, x, y, w, h, color);
 				} break;
@@ -1004,7 +988,7 @@ void execute(vm_t* vm)
 					const i32 y = *(i32*)&vm->cpu.x[11];
 					const i32 w = *(i32*)&vm->cpu.x[12];
 					const i32 h = *(i32*)&vm->cpu.x[13];
-					const u8 color = vm->cpu.x[14];
+					const u16 color = vm->cpu.x[14];
 
 					ppu_rectfill(&vm->ppu, x, y, w, h, color);
 				} break;
@@ -1015,49 +999,59 @@ void execute(vm_t* vm)
 					const i32 y0 = *(i32*)&vm->cpu.x[11];
 					const i32 x1 = *(i32*)&vm->cpu.x[12];
 					const i32 y1 = *(i32*)&vm->cpu.x[13];
-					const u8 color = vm->cpu.x[14];
+					const u16 color = vm->cpu.x[14];
 
 					ppu_line(&vm->ppu, x0, y0, x1, y1, color);
 				} break;
 				
-				case 110: // spr
+				case 110: // pal
+				{
+					const u32 c0 = vm->cpu.x[10];
+					const u32 c1 = vm->cpu.x[11];
+					const u32 c2 = vm->cpu.x[12];
+					const u32 c3 = vm->cpu.x[13];
+					assert(c0 < PPU_COLOR_COUNT);
+					assert(c1 < PPU_COLOR_COUNT);
+					assert(c2 < PPU_COLOR_COUNT);
+					assert(c3 < PPU_COLOR_COUNT);
+
+					ppu_pal(&vm->ppu, c0, c1, c2, c3);
+				} break;
+				
+				case 111: // spr_data
+				{
+					const u32 data_addr = vm->cpu.x[10];
+					const i32 num_sprites = vm->cpu.x[11];
+
+					bus_device_t* device;
+
+					void* data = bus_get_pointer(&vm->bus, &device, data_addr, 4);
+					if (data == NULL) { unreachable; }
+					if (!(device->access_flags & ACCESS_FLAG_READ)) { unreachable; }
+
+					ppu_spr_data(&vm->ppu, data, num_sprites);
+				} break;
+				
+				case 112: // spr
 				{
 					const i32 n = *(i32*)&vm->cpu.x[10];
 					const i32 x = *(i32*)&vm->cpu.x[11];
 					const i32 y = *(i32*)&vm->cpu.x[12];
-					const u32 sprites_addr =  vm->cpu.x[13];
-					const u32 colors_addr = vm->cpu.x[14];
-					const bool bits = vm->cpu.x[15];
+					const bool bits = vm->cpu.x[13];
 
-					bus_device_t* device;
-
-					u8* sprites = bus_get_pointer(&vm->bus, &device, sprites_addr, 4);
-					if (sprites == NULL) { unreachable; }
-					if (!(device->access_flags & ACCESS_FLAG_READ)) { unreachable; }
-
-					u8* colors = bus_get_pointer(&vm->bus, &device, colors_addr, 4);
-					if (colors == NULL) { unreachable; }
-					if (!(device->access_flags & ACCESS_FLAG_READ)) { unreachable; }
-
-					ppu_spr(&vm->ppu, n, x, y, sprites, colors, bits);
+					ppu_spr(&vm->ppu, n, x, y, bits);
 				} break;
-				
-				/*case 111: // print
+
+				case 113: // tile
 				{
-					const u32 text_addr = *(u32*)&vm->cpu.x[10];
-					bus_device_t* device;
-					const char* text = bus_get_pointer(&vm->bus, &device, text_addr, 4);
-					if ((device->access_flags & ACCESS_FLAG_READ) == 0) { unreachable; }
-					if (device->read_delay > 0) { SDL_Delay(device->read_delay); }
-					assert(text != NULL);
+					const i32 n = *(i32*)&vm->cpu.x[10];
 					const i32 x = *(i32*)&vm->cpu.x[11];
 					const i32 y = *(i32*)&vm->cpu.x[12];
-					const u8 color = vm->cpu.x[13];
-					// printf("print(\"%s\", %i, %i, %u)\n", text, x, y, color);
+					const bool bits = vm->cpu.x[13];
 
-					ppu_print(&vm->ppu, text, x, y, color);
-				} break;*/
-
+					ppu_tile(&vm->ppu, n, x, y, bits);
+				} break;
+				
 				default:
 				{
 					printf("Unknown syscall %u\n", syscall_value);
@@ -1669,116 +1663,30 @@ void bus_write_32(bus_t* bus, cpu_t* cpu, u32 address, u32 value)
 	*(u32*)ptr = value;
 }
 
-static u32 ppu_color_distance(u8 r0, u8 g0, u8 b0, u8 r1, u8 g1, u8 b1)
-{
-    i32 dr = r1 - r0;
-    i32 dg = g1 - g0;
-    i32 db = b1 - b0;
-    return dr * dr + dg * dg + db * db;
-}
-
-void ppu_import(ppu_t* ppu, const char* path, u8* dst, i32 dst_width, i32 dst_height)
-{
-	printf("Importing %s\n", path);
-
-	i32 src_width;
-	i32 src_height;
-	i32 comp;
-	u8* src = stbi_load(path, &src_width, &src_height, &comp, STBI_rgb_alpha);
-	printf("comp: %i\n", comp);
-	assert(src != NULL);
-	assert(src_width == dst_width);
-	assert(src_height == dst_height);
-
-	if (comp == 4)
-	{
-		u32 total_pixels = dst_width * dst_height;
-		for (u32 i = 0; i < total_pixels; i += 1)
-		{
-			const i32 x = i % 128;
-			const i32 y = i / 128;
-
-			u32 src_color = ((u32*)src)[i];
-			u8* rgba = (u8*)&src_color;
-			
-			const u8 r = rgba[0];
-			const u8 g = rgba[1];
-			const u8 b = rgba[2];
-
-			bool found_color = false;
-
-			for (u32 j = 0; j < PPU_COLOR_COUNT; j += 1)
-			{
-				const u32 pal_color = ppu->palette[j];
-				const u8* pal_rgba = (u8*)&pal_color;
-
-				if (r == pal_rgba[0] && g == pal_rgba[1] && b == pal_rgba[2])
-				{
-					dst[i] = j;
-					found_color = true;
-					break;
-				}
-			}
-
-			if (found_color) { continue; }
-			// printf("[%i](%02X, %02X, %02X)\n", i, r, g, b);
-			/*for (u32 j = 0; j < 16; j += 1)
-			{
-				const u32 pal_color = ppu->palette[j];
-				const u8* pal_rgba = (u8*)&pal_color;
-
-				printf("  [%02X, %02X, %02X]\n", pal_rgba[0], pal_rgba[1], pal_rgba[2]);
-			}
-			unreachable;*/
-
-			u32 closest_color_index = 0;
-			u32 min_distance = U32_MAX;
-			
-			for (u32 j = 0; j < PPU_COLOR_COUNT; j += 1)
-			{
-				const u32 pal_color = ppu->palette[j];
-				const u8* pal_rgba = (u8*)&pal_color;
-				
-				i32 distance = ppu_color_distance(r, g, b, pal_rgba[0], pal_rgba[1], pal_rgba[2]);
-				if (distance < min_distance)
-				{
-					closest_color_index = j;
-					distance = min_distance;
-				}
-			}
-
-			dst[i] = closest_color_index;
-		}
-	}
-	else
-	{
-		unreachable;
-	}
-
-	stbi_image_free(src);
-}
-
 void ppu_init(ppu_t* ppu)
 {
+	// Create color lookup table
 	{
-		i32 src_width;
-		i32 src_height;
-		i32 comp;
-		u8* src = stbi_load("palette.png", &src_width, &src_height, &comp, STBI_rgb_alpha);
-		printf("comp: %i\n", comp);
-		assert(src != NULL);
-		assert(comp == 4);
+		u8* rgba = (u8*)ppu->color_lookup;
 
-		for (u32 i = 0; i < PPU_COLOR_COUNT; i += 1)
+		for (size_t i = 0; i < PPU_COLOR_COUNT; i += 1)
 		{
-			memcpy(&ppu->palette[i], &src[i * 4], 4);
-		}
-	
-		stbi_image_free(src);
-	}
+			const u8 r5 = i & 0x1F;
+			const u8 g5 = (i >> 5) & 0x1F;
+			const u8 b5 = (i >> 10) & 0x1F;
 
-	// ppu_import(ppu, "font.png", ppu->font_pixels, 128, 128);
-	// ppu_import(ppu, "sprites.png", ppu->sprite_pixels, 128, 128);
+			const u8 r8 = (u8)(((f32)r5 / 31.0) * 255.0);
+			const u8 g8 = (u8)(((f32)g5 / 31.0) * 255.0);
+			const u8 b8 = (u8)(((f32)b5 / 31.0) * 255.0);
+
+			rgba[0] = r8;
+			rgba[1] = g8;
+			rgba[2] = b8;
+			rgba[3] = 255;
+
+			rgba += 4;
+		}
+	}
 }
 
 void ppu_camera(ppu_t* ppu, i32 x, i32 y)
@@ -1787,7 +1695,7 @@ void ppu_camera(ppu_t* ppu, i32 x, i32 y)
 	ppu->camera_y = y;
 }
 
-u8 ppu_pget(ppu_t* ppu, i32 x, i32 y)
+u16 ppu_pget(ppu_t* ppu, i32 x, i32 y)
 {
 	const i32 index = x + y * PPU_SCREEN_WIDTH;
 	if (index < 0 || index >= PPU_SCREEN_TOTAL_PIXELS)
@@ -1795,10 +1703,10 @@ u8 ppu_pget(ppu_t* ppu, i32 x, i32 y)
 		return 0;
 	}
 
-	return ppu->palette_pixels[index];
+	return ppu->colors[index];
 }
 
-void ppu_pset(ppu_t* ppu, i32 x, i32 y, u8 color)
+void ppu_pset(ppu_t* ppu, i32 x, i32 y, u16 color)
 {
 	assert(ppu->pixels != NULL);
 
@@ -1808,33 +1716,52 @@ void ppu_pset(ppu_t* ppu, i32 x, i32 y, u8 color)
 		return;
 	}
 	
-	ppu->palette_pixels[index] = color;
-	ppu->pixels[index] = ppu->palette[color];
+	ppu->colors[index] = color;
+	ppu->pixels[index] = ppu->color_lookup[color];
 }
 
-/*void ppu_pal(ppu_t* ppu, u8 c0, u8 c1)
+static inline void ppu_unpack_color(u16 color5, u32* color24)
 {
-	assert(c0 < 16);
-	assert(c1 < 16);
+	const u8 r5 = color5 & 0x1F;
+	const u8 g5 = (color5 >> 5) & 0x1F;
+	const u8 b5 = (color5 >> 10) & 0x1F;
 
-	const u32 tmp = ppu->palette[c0];
-	ppu->palette[c0] = ppu->palette[c1];
-	ppu->palette[c1] = tmp;
+	((u8*)color24)[0] = ((f32)r5 / 31.0) * 255.0;
+	((u8*)color24)[1] = ((f32)g5 / 31.0) * 255.0;
+	((u8*)color24)[2] = ((f32)b5 / 31.0) * 255.0;
+
+	printf("(%u, %u, %u) (%u, %u, %u)\n",
+		r5, g5, b5,
+		((u8*)color24)[0],
+		((u8*)color24)[1],
+		((u8*)color24)[2]);
 }
 
-void ppu_palt(ppu_t* ppu, u8 color, bool transparent)
+void ppu_pal(ppu_t* ppu, u16 c0, u16 c1, u16 c2, u16 c3)
 {
-	assert(color < 16);
+	/*u32 c24[4];
+	ppu_unpack_color(c0, &c24[0]);
+	ppu_unpack_color(c1, &c24[1]);
+	ppu_unpack_color(c2, &c24[2]);
+	ppu_unpack_color(c3, &c24[3]);*/
 
-	ppu->palette_transparent[color] = transparent;
-}*/
+	//printf("c24[0]: %08X\n", c24[0]);
+	//printf("c24[1]: %08X\n", c24[1]);
+	//printf("c24[2]: %08X\n", c24[2]);
+	//printf("c24[3]: %08X\n", c24[3]);
 
-void ppu_cls(ppu_t* ppu, u8 color)
+	ppu->palette[0] = c0;
+	ppu->palette[1] = c1;
+	ppu->palette[2] = c2;
+	ppu->palette[3] = c3;
+}
+
+void ppu_cls(ppu_t* ppu, u16 color)
 {
 	for (size_t i = 0; i < PPU_SCREEN_TOTAL_PIXELS; i += 1)
 	{
-		ppu->palette_pixels[i] = color;
-		ppu->pixels[i] = ppu->palette[color];
+		ppu->colors[i] = color;
+		ppu->pixels[i] = ppu->color_lookup[color];
 	}
 }
 
@@ -1843,7 +1770,7 @@ void ppu_clip(ppu_t* ppu, i32 x, i32 y, i32 w, i32 h)
 	ppu->clip_rect = (SDL_Rect){ x, y, w, h };
 }
 
-void ppu_rect(ppu_t* ppu, i32 x, i32 y, i32 w, i32 h, u8 color)
+void ppu_rect(ppu_t* ppu, i32 x, i32 y, i32 w, i32 h, u16 color)
 {
 	const i32 x0 = x;
 	const i32 y0 = y;
@@ -1856,7 +1783,7 @@ void ppu_rect(ppu_t* ppu, i32 x, i32 y, i32 w, i32 h, u8 color)
 	ppu_line(ppu, x1, y0, x0, y0, color);
 }
 
-void ppu_rectfill(ppu_t* ppu, i32 x, i32 y, i32 w, i32 h, u8 color)
+void ppu_rectfill(ppu_t* ppu, i32 x, i32 y, i32 w, i32 h, u16 color)
 {
 	x -= ppu->camera_x;
 	y -= ppu->camera_y;
@@ -1875,7 +1802,7 @@ void ppu_rectfill(ppu_t* ppu, i32 x, i32 y, i32 w, i32 h, u8 color)
 	}
 }
 
-void ppu_line(ppu_t* ppu, i32 x0, i32 y0, i32 x1, i32 y1, u8 color)
+void ppu_line(ppu_t* ppu, i32 x0, i32 y0, i32 x1, i32 y1, u16 color)
 {
 	x0 -= ppu->camera_x;
 	y0 -= ppu->camera_y;
@@ -1908,10 +1835,15 @@ void ppu_line(ppu_t* ppu, i32 x0, i32 y0, i32 x1, i32 y1, u8 color)
 	}
 }
 
-void ppu_spr(ppu_t* ppu, i32 n, i32 x, i32 y, u8* sprites, u8* colors, u32 bits)
+void ppu_spr_data(ppu_t* ppu, void* data, u32 num_sprites)
 {
-//	printf("ppu_spr(%i, %i, %i, %p, { %u, %u, %u, %u }, %u)\n",
-//		n, x, y, sprites, colors[0], colors[1], colors[2], colors[3], bits);
+	ppu->sprites = data;
+	ppu->num_sprites = num_sprites;
+}
+
+void ppu_spr(ppu_t* ppu, i32 n, i32 x, i32 y, u32 bits)
+{
+	if (ppu->sprites == NULL) { return; }
 
 	x -= ppu->camera_x;
 	y -= ppu->camera_y;
@@ -1921,28 +1853,26 @@ void ppu_spr(ppu_t* ppu, i32 n, i32 x, i32 y, u8* sprites, u8* colors, u32 bits)
 	if ((y + 8) < 0) { return; }
 	if (x >= PPU_SCREEN_WIDTH) { return; }
 	if (y >= PPU_SCREEN_HEIGHT) { return; }
-	
-	const u32 sprite_x = n % (128 / 8);
-	const u32 sprite_y = n / (128 / 8);
+
+	u8* sprite = &ppu->sprites[n * 16];
+	u32 bit_offset = 0;
 
 	for (u32 oy = 0; oy < 8; oy += 1)
 	{
 		for (u32 ox = 0; ox < 8; ox += 1)
 		{
-			const i32 absolute_x = sprite_x * 8 + ox;
-			const i32 absolute_y = sprite_y * 8 + oy;
-
-			const u32 bit_offset = (absolute_x + absolute_y * 128) * 2;
 			const u32 byte_index = bit_offset / 8;
 			const u32 bit_index = bit_offset % 8;
 
-			const u8 byte = sprites[byte_index];
+			const u8 byte = sprite[byte_index];
 			const u8 shift = bit_index;
 			const u8 value = (byte >> shift) & 0x3;
 
+			bit_offset += 2;
+
 			if (value == 0b00) { continue; }
 
-			const u8 color = colors[value];
+			const u16 color = ppu->palette[value];
 
 			const u32 dst_x = x + ox;
 			const u32 dst_y = y + oy;
@@ -1953,40 +1883,41 @@ void ppu_spr(ppu_t* ppu, i32 n, i32 x, i32 y, u8* sprites, u8* colors, u32 bits)
 	}
 }
 
-/*void ppu_print(ppu_t* ppu, const char* text, i32 x, i32 y, u8 color)
+void ppu_tile(ppu_t* ppu, i32 n, i32 x, i32 y, u32 bits)
 {
+	if (ppu->sprites == NULL) { return; }
+
 	x -= ppu->camera_x;
 	y -= ppu->camera_y;
 
-	for (char* c = (char*)text; *c != 0; c += 1, x += 4)
+	assert(n < 256);
+	if ((x + 8) < 0) { return; }
+	if ((y + 8) < 0) { return; }
+	if (x >= PPU_SCREEN_WIDTH) { return; }
+	if (y >= PPU_SCREEN_HEIGHT) { return; }
+	
+	for (u32 oy = 0; oy < 8; oy += 1)
 	{
-		if ((x + 8) < 0) { return; }
-		if ((y + 8) < 0) { return; }
-		if (x >= PPU_SCREEN_WIDTH) { return; }
-		if (y >= PPU_SCREEN_HEIGHT) { return; }
-
-		const u32 sprite_x = *c % (128 / 8);
-		const u32 sprite_y = *c / (128 / 8);
-
-		for (u32 oy = 0; oy < 8; oy += 1)
+		for (u32 ox = 0; ox < 8; ox += 1)
 		{
-			for (u32 ox = 0; ox < 8; ox += 1)
-			{
-				const u32 src_x = (sprite_x * 8) + ox;
-				const u32 src_y = (sprite_y * 8) + oy;
-				const u32 dst_x = x + ox;
-				const u32 dst_y = y + oy;
-				const u32 src_index = src_y * 128 + src_x;
-				assert(src_index < (128 * 128));
-				u8 src_color = ppu->font_pixels[src_index];
-				if (src_color == 0) { continue; }
-				if (dst_x >= PPU_SCREEN_WIDTH) { continue; }
-				if (dst_y >= PPU_SCREEN_HEIGHT) { continue; }
-				ppu_pset(ppu, dst_x, dst_y, color);
-			}
+			const u32 bit_offset = n * 2;
+			const u32 byte_index = bit_offset / 8;
+			const u32 bit_index = bit_offset % 8;
+
+			const u8 byte = ppu->sprites[byte_index];
+			const u8 shift = bit_index;
+			const u8 value = (byte >> shift) & 0x3;
+
+			const u16 color = ppu->palette[value];
+
+			const u32 dst_x = x + ox;
+			const u32 dst_y = y + oy;
+			if (dst_x >= PPU_SCREEN_WIDTH) { continue; }
+			if (dst_y >= PPU_SCREEN_HEIGHT) { continue; }
+			ppu_pset(ppu, dst_x, dst_y, color);
 		}
 	}
-}*/
+}
 
 bool is_key_down(vm_t* vm, SDL_Scancode scancode)
 {

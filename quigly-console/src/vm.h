@@ -18,7 +18,9 @@
 #define PPU_SCREEN_TOTAL_PIXELS (PPU_SCREEN_WIDTH * PPU_SCREEN_HEIGHT)
 #define PPU_SPRITE_SHEET_WIDTH 256
 #define PPU_SPRITE_SHEET_SIZE (PPU_SPRITE_SHEET_WIDTH * PPU_SPRITE_SHEET_WIDTH)
-#define PPU_COLOR_COUNT 256
+#define PPU_COLOR_COUNT 32768
+
+#define PPU_RGB_PACK(r, g, b) ((r) | ((g) << 5) | ((b) << 10))
 
 typedef struct
 {
@@ -106,11 +108,11 @@ typedef struct
 typedef struct
 {
 	u32* pixels;
-	u32 palette[PPU_COLOR_COUNT];
-	u8 palette_pixels[PPU_SCREEN_TOTAL_PIXELS];
-	// bool palette_transparent[PPU_COLOR_COUNT];
-	// u8 sprite_pixels[PPU_SPRITE_SHEET_SIZE];
-	// u8 font_pixels[PPU_SPRITE_SHEET_SIZE];
+	u16 palette[4];
+	u32 colors[PPU_SCREEN_TOTAL_PIXELS];
+	u32 color_lookup[PPU_COLOR_COUNT];
+	u8* sprites;
+	u32 num_sprites;
 	SDL_Rect clip_rect;
 	i32 camera_x;
 	i32 camera_y;
@@ -199,20 +201,19 @@ void bus_write_8(bus_t* bus, cpu_t* cpu, u32 address, u8 value);
 void bus_write_16(bus_t* bus, cpu_t* cpu, u32 address, u16 value);
 void bus_write_32(bus_t* bus, cpu_t* cpu, u32 address, u32 value);
 
-void ppu_import(ppu_t* ppu, const char* path, u8* dst, i32 dst_width, i32 dst_height);
 void ppu_init(ppu_t* ppu);
 void ppu_camera(ppu_t* ppu, i32 x, i32 y); // ecall 100
-u8 ppu_pget(ppu_t* ppu, i32 x, i32 y);
-void ppu_pset(ppu_t* ppu, i32 x, i32 y, u8 color);
-// void ppu_pal(ppu_t* ppu, u8 c0, u8 c1);
-// void ppu_palt(ppu_t* ppu, u8 color, bool transparent);
-void ppu_cls(ppu_t* ppu, u8 color);
+u16 ppu_pget(ppu_t* ppu, i32 x, i32 y);
+void ppu_pset(ppu_t* ppu, i32 x, i32 y, u16 color);
+void ppu_cls(ppu_t* ppu, u16 color);
 void ppu_clip(ppu_t* ppu, i32 x, i32 y, i32 w, i32 h);
-void ppu_rect(ppu_t* ppu, i32 x, i32 y, i32 w, i32 h, u8 color);
-void ppu_rectfill(ppu_t* ppu, i32 x, i32 y, i32 w, i32 h, u8 color);
-void ppu_line(ppu_t* ppu, i32 x0, i32 y0, i32 x1, i32 y1, u8 color);
-void ppu_spr(ppu_t* ppu, i32 n, i32 x, i32 y, u8* sprites, u8* colors, u32 bits);
-// void ppu_print(ppu_t* ppu, const char* text, i32 x, i32 y, u8 color);
+void ppu_rect(ppu_t* ppu, i32 x, i32 y, i32 w, i32 h, u16 color);
+void ppu_rectfill(ppu_t* ppu, i32 x, i32 y, i32 w, i32 h, u16 color);
+void ppu_line(ppu_t* ppu, i32 x0, i32 y0, i32 x1, i32 y1, u16 color);
+void ppu_pal(ppu_t* ppu, u16 c0, u16 c1, u16 c2, u16 c3);
+void ppu_spr_data(ppu_t* ppu, void* data, u32 num_sprites);
+void ppu_spr(ppu_t* ppu, i32 n, i32 x, i32 y, u32 bits);
+void ppu_tile(ppu_t* ppu, i32 n, i32 x, i32 y, u32 bits);
 
 bool is_key_down(vm_t* vm, SDL_Scancode scancode);
 bool is_key_pressed(vm_t* vm, SDL_Scancode scancode);
