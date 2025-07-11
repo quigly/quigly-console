@@ -37,7 +37,7 @@ static ball_t balls[1];
 static u32 seed;
 const static u8 sprites[] =
 {
-	#embed "../sprites.bin"
+	#embed "sprites.bin"
 };
 
 static void puts(const char* str)

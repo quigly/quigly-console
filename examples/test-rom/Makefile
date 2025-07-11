@@ -11,7 +11,7 @@ testrom.bin: build.c
 	@ echo "Linking objects"
 	@ $(LD) -T linker.ld $(LDFLAGS) obj/boot.o obj/build.o -o obj/testrom.elf
 	@ llvm-objdump -d obj/testrom.elf > disassembly.txt
-	@ llvm-objcopy -O binary obj/testrom.elf ../testrom.bin
+	@ llvm-objcopy -O binary obj/testrom.elf bin/testrom.bin
 
 clean:
 	@ rm -r obj/*
