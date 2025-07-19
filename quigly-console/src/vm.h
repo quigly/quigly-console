@@ -57,8 +57,8 @@ typedef union
 	struct
 	{
 		bus_device_t dram;
-		bus_device_t sram;
 		bus_device_t rom;
+		bus_device_t sram;
 	};
 	bus_device_t devices[BUS_MAX_DEVICES];
 } bus_t;
@@ -138,12 +138,17 @@ typedef struct
 {
 	button_state_t key_states[SDL_SCANCODE_COUNT];
 	button_state_t mouse_button_states[16];
+	button_state_t gamepad_button_states[SDL_GAMEPAD_BUTTON_COUNT];
 	i32 mouse_x;
 	i32 mouse_y;
 	i32 mouse_dx;
 	i32 mouse_dy;
 	bool mouse_captured;
 	i32 mouse_wheel_delta;
+	bool has_gamepad;
+	i32 num_gamepads;
+	SDL_JoystickID* joysticks;
+	SDL_Gamepad* gamepad;
 } input_t;
 
 typedef enum
@@ -153,7 +158,15 @@ typedef enum
 	BUTTON_DPAD_UP,
 	BUTTON_DPAD_DOWN,
 	BUTTON_A,
-	BUTTON_B
+	BUTTON_B,
+	BUTTON_X,
+	BUTTON_Y,
+	BUTTON_L,
+	BUTTON_R,
+	BUTTON_START,
+	BUTTON_SELECT,
+
+	BUTTON_MAX_BUTTONS
 } button_e;
 
 typedef enum
@@ -180,11 +193,10 @@ typedef struct
 	struct
 	{
 		u64 last_time;
-		u32 fps;
+		u32 frames;
 		u64 frame_timer;
 		f64 delta_time;
 		f64 time_step;
-		u64 now;
 		u64 ticks;
 	} time;
 } vm_t;
@@ -217,6 +229,8 @@ void ppu_tile(ppu_t* ppu, i32 n, i32 x, i32 y, u32 bits);
 
 bool is_key_down(vm_t* vm, SDL_Scancode scancode);
 bool is_key_pressed(vm_t* vm, SDL_Scancode scancode);
+bool is_gamepad_button_down(vm_t* vm, SDL_GamepadButton button);
+bool is_gamepad_button_pressed(vm_t* vm, SDL_GamepadButton button);
 
 /*
 csr 0x7C0 frame ready (ready for guest to begin frame)

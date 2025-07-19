@@ -22,6 +22,8 @@ typedef uint64_t u64;
 
 typedef u8 b8;
 
+typedef u32 size_t;
+
 #define true 1
 #define false 0
 
@@ -77,6 +79,8 @@ typedef u8 b8;
 		((((u16)(b)) & 0x1F) << 10)\
 	)
 
+#define assert(x) if (!(x)) { putsf("Assert failed at %s:i\n", __FILE__, __LINE__); shutdown(); }
+
 extern void camera(i32 x, i32 y);
 extern u8 pget(i32 x, i32 y);
 extern void pset(i32 x, i32 y, u8 color);
@@ -92,7 +96,23 @@ extern void tile(i32 n, i32 x, i32 y, u32 bits);
 extern b8 btn(u8 button, u8 player);
 extern b8 btnp(u8 button, u8 player);
 extern void putc(char c);
-extern void exit();
+extern void shutdown();
 
-extern u32 _heap_start;
-extern u32 _stack_top;
+extern u32 __heap_start;
+extern u32 __stack_top;
+
+static inline void* memcpy(void* dst, const void* src, size_t count)
+{
+	u8* dstb = (u8*)dst;
+	u8* srcb = (u8*)src;
+
+	while (count > 0)
+	{
+		*dstb = *srcb;
+		dstb += 1;
+		srcb += 1;
+		count -= 1;
+	}
+
+	return dst;
+}

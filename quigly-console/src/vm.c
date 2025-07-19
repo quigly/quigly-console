@@ -184,6 +184,8 @@ static const char* instruction_names[] =
 	#undef INSTRUCTION
 };
 
+static bool used_instructions[1024];
+
 static bool bus_init_device(bus_t* bus, u32 index, const char* label, size_t start_address, size_t size)
 {
 	assert(bus != NULL);
@@ -201,7 +203,9 @@ static bool bus_init_device(bus_t* bus, u32 index, const char* label, size_t sta
 	device->size = size;
 
 	device->region.begin = start_address;
-	device->region.end = start_address + size - 1;
+	device->region.end = start_address + size;
+
+	printf("%s 0x%08X-0x%08X\n", label, device->region.begin, device->region.end);
 
 	return true;
 }
@@ -222,14 +226,13 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv)
 		return SDL_APP_FAILURE;
 	}
 
-	vm_t* vm = malloc(sizeof(vm_t));
+	vm_t* vm = calloc(1, sizeof(vm_t));
 	assert(vm != NULL);
-	memset(vm, 0, sizeof(vm_t));
 
 	*appstate = vm;
 
-	vm->video.window_width = PPU_SCREEN_WIDTH * 4;
-	vm->video.window_height = PPU_SCREEN_HEIGHT * 4;
+	vm->video.window_width = PPU_SCREEN_WIDTH * 6;
+	vm->video.window_height = PPU_SCREEN_HEIGHT * 6;
 
 	vm->video.window = SDL_CreateWindow(":D", vm->video.window_width, vm->video.window_height, 0);
 	if (vm->video.window == NULL)
@@ -254,12 +257,12 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv)
 	
 	SDL_SetTextureScaleMode(vm->video.texture, SDL_SCALEMODE_NEAREST);
 	
-	if (!bus_init_device(&vm->bus, 0, "dram", MEGABYTES(1), MEGABYTES(4))) { return SDL_APP_FAILURE; }
-	if (!bus_init_device(&vm->bus, 1, "sram", MEGABYTES(100), MEGABYTES(1))) { return SDL_APP_FAILURE; }
-	if (!bus_init_device(&vm->bus, 2, "rom", MEGABYTES(32), MEGABYTES(32))) { return SDL_APP_FAILURE; }
+	if (!bus_init_device(&vm->bus, 0, "dram", MEGABYTES(32), MEGABYTES(32))) { return SDL_APP_FAILURE; }
+	if (!bus_init_device(&vm->bus, 1, "rom", MEGABYTES(512), MEGABYTES(128))) { return SDL_APP_FAILURE; }
+	if (!bus_init_device(&vm->bus, 2, "sram", MEGABYTES(1024), MEGABYTES(8))) { return SDL_APP_FAILURE; }
 
-	vm->bus.sram.read_delay = 50;
-	vm->bus.sram.write_delay = 50;
+	vm->bus.sram.read_delay = 1;
+	vm->bus.sram.write_delay = 1;
 
 	vm->bus.dram.access_flags = ACCESS_FLAG_READ | ACCESS_FLAG_WRITE;
 	vm->bus.sram.access_flags = ACCESS_FLAG_READ | ACCESS_FLAG_WRITE;
@@ -316,6 +319,23 @@ SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv)
 		}
 	}
 	printf("Init finished\n");
+	printf("sp: 0x%08X\n", vm->cpu.x[2]);
+
+	vm->input.has_gamepad = SDL_HasGamepad();
+	if (vm->input.has_gamepad)
+	{
+		vm->input.joysticks = SDL_GetGamepads(&vm->input.num_gamepads);
+
+		for (i32 i = 0; i < vm->input.num_gamepads; i += 1)
+		{
+			SDL_Gamepad* gamepad = SDL_OpenGamepad(vm->input.joysticks[i]);
+			if (gamepad == NULL)
+			{
+				vm->input.gamepad = gamepad;
+				break;
+			}
+		}
+	}
 
 	vm->time.time_step = 1000.0 / 60.0;
 	vm->time.last_time = SDL_GetTicks();
@@ -341,6 +361,7 @@ SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event *event)
 	{
 		case SDL_EVENT_WINDOW_CLOSE_REQUESTED:
 		{
+			printf("Closing window\n");
 			return SDL_APP_SUCCESS;
 		} break;
 
@@ -395,6 +416,26 @@ SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event *event)
 		{
 			vm->input.mouse_wheel_delta = event->wheel.y;
 		} break;
+
+		case SDL_EVENT_GAMEPAD_BUTTON_DOWN:
+		{
+			// printf("%s\n", SDL_GetGamepadStringForButton(event->gbutton.button));
+			
+			button_state_t* state = &vm->input.gamepad_button_states[event->gbutton.button];
+
+			if (!state->is_down)
+			{
+				state->tick_down = vm->time.ticks;
+			}
+			state->is_down = true;
+		} break;
+		
+		case SDL_EVENT_GAMEPAD_BUTTON_UP:
+		{
+			button_state_t* state = &vm->input.gamepad_button_states[event->gbutton.button];
+
+			state->is_down = false;
+		} break;
 	}
 
 	return SDL_APP_CONTINUE;
@@ -419,13 +460,23 @@ SDL_AppResult SDL_AppIterate(void* appstate)
 		assert(vm->cpu.csrs[0x7C2]);
 		vm->cpu.pc = vm->cpu.csrs[0x7C2];
 
-		vm->finished_frame = false;
-		while (!vm->finished_frame)
+		if (vm->paused)
 		{
-			execute(vm);
-			if (!vm->running)
+			if (is_key_pressed(vm, SDL_SCANCODE_RETURN))
 			{
-				return SDL_APP_FAILURE;
+				vm->paused = false;
+			}
+		}
+		else
+		{
+			vm->finished_frame = false;
+			while (!vm->finished_frame)
+			{
+				execute(vm);
+				if (!vm->running)
+				{
+					return SDL_APP_FAILURE;
+				}
 			}
 		}
 
@@ -442,11 +493,24 @@ SDL_AppResult SDL_AppIterate(void* appstate)
 		// vm->input.mouse_wheel_delta = 0;
 
 		vm->time.ticks += 1;
+		vm->time.frames += 1;
 		vm->time.delta_time -= 1.0;
+	}
+
+	if (vm->time.frame_timer - now >= 1000)
+	{
+		if (vm->time.frames < 60)
+		{
+			printf("[Warning] fps: %u\n", vm->time.frames);
+		}
+
+		vm->time.frames = 0;
+		vm->time.frame_timer += 1000;
 	}
 
 	if (!vm->running)
 	{
+		printf("Shutting down vm\n");
 		return SDL_APP_SUCCESS;
 	}
 
@@ -506,16 +570,28 @@ void execute(vm_t* vm)
 
 	cpu_decode(&vm->cpu, inst);
 
+	/*if (!used_instructions[vm->cpu.inst_id] && vm->cpu.inst_id >= INSTRUCTION_FLW)
+	{
+		printf("%s\n", instruction_names[vm->cpu.inst_id]);
+		used_instructions[vm->cpu.inst_id] = true;
+	}*/
+
 	u32 next_pc = vm->cpu.pc + 4;
 
 	#if VM_DEBUG_INSTRUCTIONS
 	printf("[%08X] %s\n", vm->cpu.pc, instruction_names[vm->cpu.inst_id]);
 	#endif
 
+	/*if (vm->cpu.inst_id >= INSTRUCTION_FLW)
+	{
+		printf("[%08X] %s\n", vm->cpu.pc, instruction_names[vm->cpu.inst_id]);
+	}*/
+
 	switch (vm->cpu.inst_id)
 	{
 		case INSTRUCTION_UNKNOWN:
 		{
+			printf("Unknown instruction!\n");
 			vm->running = false;
 		} break;
 
@@ -536,7 +612,10 @@ void execute(vm_t* vm)
 
 		case INSTRUCTION_JAL:
 		{
-			vm->cpu.x[vm->cpu.rd] = vm->cpu.pc;
+			if (vm->cpu.rd != 0)
+			{
+				vm->cpu.x[vm->cpu.rd] = vm->cpu.pc + 4;
+			}
 			next_pc = (u32)vm->cpu.imm + vm->cpu.pc;
 			
 			#if VM_DEBUG_INSTRUCTIONS
@@ -547,11 +626,26 @@ void execute(vm_t* vm)
 
 		case INSTRUCTION_JALR:
 		{
-			vm->cpu.x[vm->cpu.rd] = vm->cpu.pc;
-			next_pc = vm->cpu.x[vm->cpu.rs1] + vm->cpu.imm + 4;
-			
+			const u32 target_addr = ((vm->cpu.x[vm->cpu.rs1] + (u32)vm->cpu.imm) & ~1);
+			const u32 return_addr = vm->cpu.pc + 4;
+
+			if (vm->cpu.rd != 0)
+			{
+				vm->cpu.x[vm->cpu.rd] = return_addr;
+			}
+
+			next_pc = target_addr;
+
 			#if VM_DEBUG_INSTRUCTIONS
-			printf("  0x%08X\n", next_pc);
+			printf("  rs1: (i32)%i (u32)%u 0x%X\n", vm->cpu.x[vm->cpu.rs1], vm->cpu.x[vm->cpu.rs1], vm->cpu.x[vm->cpu.rs1]);
+			printf("  imm: (i32)%i (u32)%u 0x%X\n", vm->cpu.x[vm->cpu.imm], vm->cpu.x[vm->cpu.imm], vm->cpu.x[vm->cpu.imm]);
+			printf("  next_pc: 0x%08X\n", next_pc);
+
+			bus_device_t* device;
+			if (bus_get_pointer(&vm->bus, &device, next_pc, 4) == NULL)
+			{
+				unreachable;
+			}
 			#endif
 		} break;
 
@@ -605,9 +699,12 @@ void execute(vm_t* vm)
 
 		case INSTRUCTION_LB:
 		{
-			u32 address = vm->cpu.x[vm->cpu.rs1] + vm->cpu.imm;
-			u32 value = (u32)(i32)(i8)bus_read_8(&vm->bus, &vm->cpu, address);
-			vm->cpu.x[vm->cpu.rd] = value;
+			if (vm->cpu.rd != 0)
+			{
+				u32 address = vm->cpu.x[vm->cpu.rs1] + vm->cpu.imm;
+				u32 value = (u32)(i32)(i8)bus_read_8(&vm->bus, &vm->cpu, address);
+				vm->cpu.x[vm->cpu.rd] = value;
+			}
 		} break;
 
 		case INSTRUCTION_LH:
@@ -622,6 +719,11 @@ void execute(vm_t* vm)
 			u32 address = vm->cpu.x[vm->cpu.rs1] + vm->cpu.imm;
 			u32 value = bus_read_32(&vm->bus, &vm->cpu, address);
 			vm->cpu.x[vm->cpu.rd] = value;
+
+			if (vm->cpu.rd == 2 && value < MEGABYTES(32))
+			{
+				unreachable;
+			}
 		} break;
 
 		case INSTRUCTION_LBU:
@@ -641,14 +743,14 @@ void execute(vm_t* vm)
 		case INSTRUCTION_SB:
 		{
 			u32 address = vm->cpu.x[vm->cpu.rs1] + vm->cpu.imm;
-			u8 value = vm->cpu.x[vm->cpu.rs2];
+			u8 value = (u8)(vm->cpu.x[vm->cpu.rs2]);
 			bus_write_8(&vm->bus, &vm->cpu, address, value);
 		} break;
 
 		case INSTRUCTION_SH:
 		{
 			u32 address = vm->cpu.x[vm->cpu.rs1] + vm->cpu.imm;
-			u16 value = vm->cpu.x[vm->cpu.rs2];
+			u16 value = (u16)(vm->cpu.x[vm->cpu.rs2]);
 			bus_write_16(&vm->bus, &vm->cpu, address, value);
 		} break;
 
@@ -817,7 +919,15 @@ void execute(vm_t* vm)
 		{
 			const u32 syscall_value = vm->cpu.x[17]; // a7
 			#if VM_DEBUG_INSTRUCTIONS
-			printf("  value: %u\n", syscall_value);
+			/*printf("  value: %u\n", syscall_value);*/
+			for (u32 i = 0; i < 8; i += 1)
+			{
+				printf("  a%u: (i32)%i (u32)%u 0x%08X\n",
+					i,
+					vm->cpu.x[10 + i],
+					vm->cpu.x[10 + i],
+					vm->cpu.x[10 + i]);
+			}
 			#endif
 			switch (syscall_value)
 			{
@@ -832,32 +942,74 @@ void execute(vm_t* vm)
 					{
 						case BUTTON_DPAD_LEFT:
 						{
-							is_down = is_key_down(vm, SDL_SCANCODE_A);
+							is_down = is_key_down(vm, SDL_SCANCODE_A) ||
+								is_gamepad_button_down(vm, SDL_GAMEPAD_BUTTON_DPAD_LEFT);
 						} break;
 						
 						case BUTTON_DPAD_RIGHT:
 						{
-							is_down = is_key_down(vm, SDL_SCANCODE_D);
+							is_down = is_key_down(vm, SDL_SCANCODE_D) ||
+								is_gamepad_button_down(vm, SDL_GAMEPAD_BUTTON_DPAD_RIGHT);
 						} break;
 
 						case BUTTON_DPAD_UP:
 						{
-							is_down = is_key_down(vm, SDL_SCANCODE_W);
+							is_down = is_key_down(vm, SDL_SCANCODE_W) ||
+								is_gamepad_button_down(vm, SDL_GAMEPAD_BUTTON_DPAD_UP);
 						} break;
 						
 						case BUTTON_DPAD_DOWN:
 						{
-							is_down = is_key_down(vm, SDL_SCANCODE_S);
+							is_down = is_key_down(vm, SDL_SCANCODE_S) ||
+								is_gamepad_button_down(vm, SDL_GAMEPAD_BUTTON_DPAD_DOWN);
 						} break;
 						
 						case BUTTON_A:
 						{
-							is_down = is_key_down(vm, SDL_SCANCODE_X);
+							is_down = is_key_down(vm, SDL_SCANCODE_Z) ||
+								is_gamepad_button_down(vm, SDL_GAMEPAD_BUTTON_SOUTH);
 						} break;
 
 						case BUTTON_B:
 						{
-							is_down = is_key_down(vm, SDL_SCANCODE_Z);
+							is_down = is_key_down(vm, SDL_SCANCODE_X) ||
+								is_gamepad_button_down(vm, SDL_GAMEPAD_BUTTON_EAST);
+						} break;
+						
+						case BUTTON_X:
+						{
+							is_down = is_key_down(vm, SDL_SCANCODE_C) ||
+								is_gamepad_button_down(vm, SDL_GAMEPAD_BUTTON_WEST);
+						} break;
+
+						case BUTTON_Y:
+						{
+							is_down = is_key_down(vm, SDL_SCANCODE_V) ||
+								is_gamepad_button_down(vm, SDL_GAMEPAD_BUTTON_NORTH);
+						} break;
+						
+						case BUTTON_L:
+						{
+							is_down = is_key_down(vm, SDL_SCANCODE_Q) ||
+								is_gamepad_button_down(vm, SDL_GAMEPAD_BUTTON_LEFT_SHOULDER);
+						} break;
+						
+						case BUTTON_R:
+						{
+							is_down = is_key_down(vm, SDL_SCANCODE_E) ||
+								is_gamepad_button_down(vm, SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER);
+						} break;
+						
+						case BUTTON_SELECT:
+						{
+							is_down = is_key_down(vm, SDL_SCANCODE_TAB) ||
+								is_gamepad_button_down(vm, SDL_GAMEPAD_BUTTON_BACK);
+						} break;
+						
+						case BUTTON_START:
+						{
+							is_down = is_key_down(vm, SDL_SCANCODE_RETURN) ||
+								is_gamepad_button_down(vm, SDL_GAMEPAD_BUTTON_START);
 						} break;
 					}
 
@@ -875,32 +1027,74 @@ void execute(vm_t* vm)
 					{
 						case BUTTON_DPAD_LEFT:
 						{
-							is_pressed = is_key_pressed(vm, SDL_SCANCODE_A);
+							is_pressed = is_key_pressed(vm, SDL_SCANCODE_A) ||
+								is_gamepad_button_pressed(vm, SDL_GAMEPAD_BUTTON_DPAD_LEFT);
 						} break;
 						
 						case BUTTON_DPAD_RIGHT:
 						{
-							is_pressed = is_key_pressed(vm, SDL_SCANCODE_D);
+							is_pressed = is_key_pressed(vm, SDL_SCANCODE_D) ||
+								is_gamepad_button_pressed(vm, SDL_GAMEPAD_BUTTON_DPAD_RIGHT);
 						} break;
 
 						case BUTTON_DPAD_UP:
 						{
-							is_pressed = is_key_pressed(vm, SDL_SCANCODE_W);
+							is_pressed = is_key_pressed(vm, SDL_SCANCODE_W) ||
+								is_gamepad_button_pressed(vm, SDL_GAMEPAD_BUTTON_DPAD_UP);
 						} break;
 						
 						case BUTTON_DPAD_DOWN:
 						{
-							is_pressed = is_key_pressed(vm, SDL_SCANCODE_S);
+							is_pressed = is_key_pressed(vm, SDL_SCANCODE_S) ||
+								is_gamepad_button_pressed(vm, SDL_GAMEPAD_BUTTON_DPAD_DOWN);
 						} break;
 						
 						case BUTTON_A:
 						{
-							is_pressed = is_key_pressed(vm, SDL_SCANCODE_X);
+							is_pressed = is_key_pressed(vm, SDL_SCANCODE_Z) ||
+								is_gamepad_button_pressed(vm, SDL_GAMEPAD_BUTTON_SOUTH);
 						} break;
 
 						case BUTTON_B:
 						{
-							is_pressed = is_key_pressed(vm, SDL_SCANCODE_Z);
+							is_pressed = is_key_pressed(vm, SDL_SCANCODE_X) ||
+								is_gamepad_button_pressed(vm, SDL_GAMEPAD_BUTTON_EAST);
+						} break;
+						
+						case BUTTON_X:
+						{
+							is_pressed = is_key_pressed(vm, SDL_SCANCODE_C) ||
+								is_gamepad_button_pressed(vm, SDL_GAMEPAD_BUTTON_WEST);
+						} break;
+
+						case BUTTON_Y:
+						{
+							is_pressed = is_key_pressed(vm, SDL_SCANCODE_V) ||
+								is_gamepad_button_pressed(vm, SDL_GAMEPAD_BUTTON_NORTH);
+						} break;
+						
+						case BUTTON_L:
+						{
+							is_pressed = is_key_pressed(vm, SDL_SCANCODE_Q) ||
+								is_gamepad_button_pressed(vm, SDL_GAMEPAD_BUTTON_LEFT_SHOULDER);
+						} break;
+						
+						case BUTTON_R:
+						{
+							is_pressed = is_key_pressed(vm, SDL_SCANCODE_E) ||
+								is_gamepad_button_pressed(vm, SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER);
+						} break;
+						
+						case BUTTON_SELECT:
+						{
+							is_pressed = is_key_pressed(vm, SDL_SCANCODE_TAB) ||
+								is_gamepad_button_pressed(vm, SDL_GAMEPAD_BUTTON_BACK);
+						} break;
+						
+						case BUTTON_START:
+						{
+							is_pressed = is_key_pressed(vm, SDL_SCANCODE_RETURN) ||
+								is_gamepad_button_pressed(vm, SDL_GAMEPAD_BUTTON_START);
 						} break;
 					}
 
@@ -1062,7 +1256,8 @@ void execute(vm_t* vm)
 
 		case INSTRUCTION_EBREAK:
 		{
-			unreachable;
+			printf("Triggered breakpoint at 0x%08X\n", vm->cpu.pc);
+			vm->paused = true;
 		} break;
 
 		case INSTRUCTION_MUL:
@@ -1081,16 +1276,16 @@ void execute(vm_t* vm)
 
 		case INSTRUCTION_MULHSU:
 		{
-			u64 x = vm->cpu.x[vm->cpu.rs1];
+			i64 x = (i64)vm->cpu.x[vm->cpu.rs1];
 			u64 y = vm->cpu.x[vm->cpu.rs2];
 			vm->cpu.x[vm->cpu.rd] = (x * y) >> 32;
 		} break;
 
 		case INSTRUCTION_MULHU:
 		{
-			i64 x = (i64)(i32)vm->cpu.x[vm->cpu.rs1];
+			u64 x = (i64)(i32)vm->cpu.x[vm->cpu.rs1];
 			u64 y = (u64)vm->cpu.x[vm->cpu.rs2];
-			vm->cpu.x[vm->cpu.rd] = (x * y) >> 32;
+			vm->cpu.x[vm->cpu.rd] = (u32)((x * y) >> 32);
 		} break;
 
 		case INSTRUCTION_DIV:
@@ -1116,7 +1311,7 @@ void execute(vm_t* vm)
 			u32 r;
 			if (vm->cpu.x[vm->cpu.rs2] == 0)
 			{
-				r = I32_MAX;
+				r = 0xFFFFFFFF;
 			}
 			else
 			{
@@ -1245,7 +1440,7 @@ void execute(vm_t* vm)
 		} break;
 	}
 
-	if (next_pc == 0)
+	if (next_pc < MEGABYTES(1))
 	{
 		printf("prev_pc: 0x%08X\n", vm->cpu.prev_pc);
 		printf("pc: 0x%08X\n", vm->cpu.pc);
@@ -1264,7 +1459,7 @@ void execute(vm_t* vm)
 	vm->cpu.pc = next_pc;
 	vm->cpu.cycles += 1;
 
-#if 0
+	#if VM_DEBUG_INSTRUCTIONS
 	for (i32 i = 0; i < 32; i += 1)
 	{
 		const u32 x_curr = vm->cpu.x[i];
@@ -1275,12 +1470,17 @@ void execute(vm_t* vm)
 			continue;
 		}
 
-		printf("[%s] (i32)%i (u32)%u 0x%X\n", register_names[i], (i32)x_curr, x_curr, x_curr);
-		printf("     (i32)%i (u32)%u 0x%X\n", (i32)x_last, x_last, x_last);
+		printf("  [%s] (i32)%i (u32)%u 0x%X\n", register_names[i], (i32)x_curr, x_curr, x_curr);
+		printf("       (i32)%i (u32)%u 0x%X\n", (i32)x_last, x_last, x_last);
 
 		vm->cpu.x_last[i] = x_curr;
 	}
-#endif
+	#endif
+
+	if (vm->cpu.x[2] == 0)
+	{
+		unreachable;
+	}
 
 	// SDL_Delay(1000);
 }
@@ -1297,28 +1497,42 @@ static inline i32 s_imm(u32 inst)
 
 static inline i32 u_imm(u32 inst)
 {
-	return ((int32_t)inst & 0xFFFFF000);
+	return inst & 0b11111111111111111111000000000000;
+	// return ((uint32_t)inst & 0xFFFFF000);
 }
 
 static inline i32 j_imm(u32 inst)
 {
-	return ((uint32_t)(((int32_t)(inst & 0x80000000)) >> 11)) |
-		(inst & 0xFF000) | ((inst >> 9) & 0x800) | ((inst >> 20) & 0x7FE);
+	u32 dst = 0;
+    dst |= (inst & 0b10000000000000000000000000000000);
+    dst |= (inst & 0b00000000000011111111000000000000) << 11;
+    dst |= (inst & 0b00000000000100000000000000000000) << 2;
+    dst |= (inst & 0b01111111111000000000000000000000) >> 9;
+    return ((int32_t) dst) >> 11;
 }
 
 static inline i32 b_imm(u32 inst)
 {
-	return ((uint32_t)(((int32_t)(inst & 0x80000000)) >> 19)) |
-		((inst & 0x80) << 4) | ((inst >> 20) & 0x7E0) |
-		((inst >> 7) & 0x1E);
+	u32 imm = ((inst >> 31) & 0x1) << 12 |
+			  ((inst >> 7)  & 0x1) << 11 |
+			  ((inst >> 25) & 0x3F) << 5 |
+			  ((inst >> 8)  & 0xF) << 1;
+	imm = (i32)(imm << 19) >> 19;  // Sign-extend 13-bit
+	
+	return imm;
 }
 
 void cpu_decode(cpu_t* cpu, u32 inst)
 {
 	cpu->opcode = inst & OPCODE_MASK;
-	// printf("Opcode: 0x%X\n", cpu->opcode);
 	cpu->inst_type = opcode_lookup_table[cpu->opcode];
-	assert(cpu->inst_type != INSTRUCTION_TYPE_UNKNOWN);
+	if (cpu->inst_type == INSTRUCTION_TYPE_UNKNOWN)
+	{
+		printf("Error: unknown instruction type at 0x%08X\n", cpu->pc);
+		printf("Opcode: %u\n", cpu->opcode);
+		printf("Inst: 0x%08X\n", inst);
+		exit(1);
+	}
 	cpu->rd = (inst >> 7) & RS_MASK;
 	cpu->rs1 = (inst >> 15) & RS_MASK;
 	cpu->rs2 = (inst >> 20) & RS_MASK;
@@ -1534,7 +1748,7 @@ void* bus_get_pointer(bus_t* bus, bus_device_t** pdevice, u32 address, u32 size)
 		bus_device_t* device = &bus->devices[i];
 
 		if (address < device->region.begin ||
-			(address + size) > device->region.end)
+			(address + size) >= device->region.end)
 		{
 			continue;
 		}
@@ -1546,7 +1760,7 @@ void* bus_get_pointer(bus_t* bus, bus_device_t** pdevice, u32 address, u32 size)
 		return device->memory + offset;
 	}
 
-	printf("Invalid address 0x%08X\n", address);
+	printf("Invalid address 0x%08X (size: %u)\n", address, size);
 	*pdevice = NULL;
 	return NULL;
 }
@@ -1587,11 +1801,19 @@ u16 bus_read_16(bus_t* bus, cpu_t* cpu, u32 address)
 
 u32 bus_read_32(bus_t* bus, cpu_t* cpu, u32 address)
 {
+	#if VM_DEBUG_INSTRUCTIONS
+	printf("  bus_read_32(0x%08X)\n", address);
+	#endif
+	
 	bus_device_t* device;
 	void* ptr = bus_get_pointer(bus, &device, address, 4);
 	if (ptr == NULL)
 	{
 		// TODO: handle invalid address
+
+		printf("bus_read_32(0x%08X)\n", address);
+		printf("pc: 0x%08X\n", cpu->pc);
+		
 		unreachable;
 		return 0;
 	}
@@ -1609,6 +1831,7 @@ void bus_write_8(bus_t* bus, cpu_t* cpu, u32 address, u8 value)
 	if (ptr == NULL)
 	{
 		// TODO: handle invalid address
+
 		unreachable;
 		return;
 	}
@@ -1638,6 +1861,10 @@ void bus_write_16(bus_t* bus, cpu_t* cpu, u32 address, u16 value)
 
 void bus_write_32(bus_t* bus, cpu_t* cpu, u32 address, u32 value)
 {
+	#if VM_DEBUG_INSTRUCTIONS
+	printf("  bus_write_32(0x%08X, %i(0x%X))\n", address, (i32)value, value);
+	#endif
+
 	bus_device_t* device;
 	void* ptr = bus_get_pointer(bus, &device, address, 4);
 	if (ptr == NULL)
@@ -1739,17 +1966,6 @@ static inline void ppu_unpack_color(u16 color5, u32* color24)
 
 void ppu_pal(ppu_t* ppu, u16 c0, u16 c1, u16 c2, u16 c3)
 {
-	/*u32 c24[4];
-	ppu_unpack_color(c0, &c24[0]);
-	ppu_unpack_color(c1, &c24[1]);
-	ppu_unpack_color(c2, &c24[2]);
-	ppu_unpack_color(c3, &c24[3]);*/
-
-	//printf("c24[0]: %08X\n", c24[0]);
-	//printf("c24[1]: %08X\n", c24[1]);
-	//printf("c24[2]: %08X\n", c24[2]);
-	//printf("c24[3]: %08X\n", c24[3]);
-
 	ppu->palette[0] = c0;
 	ppu->palette[1] = c1;
 	ppu->palette[2] = c2;
@@ -1928,5 +2144,16 @@ bool is_key_pressed(vm_t* vm, SDL_Scancode scancode)
 {
 	return vm->input.key_states[scancode].is_down &&
 		vm->input.key_states[scancode].tick_down == vm->time.ticks;
+}
+
+bool is_gamepad_button_down(vm_t* vm, SDL_GamepadButton button)
+{
+	return vm->input.gamepad_button_states[button].is_down;
+}
+
+bool is_gamepad_button_pressed(vm_t* vm, SDL_GamepadButton button)
+{
+	return vm->input.gamepad_button_states[button].is_down &&
+		vm->input.gamepad_button_states[button].tick_down == vm->time.ticks;
 }
 

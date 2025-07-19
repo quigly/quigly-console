@@ -179,7 +179,7 @@ void _init()
 {
 	balls[0].pos_x = 64;
 	balls[0].pos_y = 40;
-	balls[0].vel_x = 1;
+	balls[0].vel_x = -1;
 	balls[0].vel_y = 1;
 
 	paddles[0].pos_x = (DISPLAY_W / 2);
@@ -192,8 +192,8 @@ void _init()
 	paddles[1].size_x = 32;
 	paddles[1].size_y = 6;
 
-	putsf("_heap_start: %u\n", &_heap_start);
-	putsf("_stack_top: %u\n", &_stack_top);
+	putsf("_heap_start: %u\n", &__heap_start);
+	putsf("__stack_top: %u\n", &__stack_top);
 }
 
 void _update()
@@ -232,14 +232,14 @@ void _update()
 
 	if (balls[0].pos_y - (BALL_H / 2) < 0)
 	{
-		balls[0].pos_x = 64 + ((rand() % 12) - 6);
+		balls[0].pos_x = 64 + ((rand() % 64) - 32);
 		balls[0].pos_y = 30;
 		balls[0].vel_y = 1;
 	}
 	
 	if (balls[0].pos_y - (BALL_H / 2) >= DISPLAY_H)
 	{
-		balls[0].pos_x = 64 + ((rand() % 12) - 6);
+		balls[0].pos_x = 64 + ((rand() % 80) - 40);
 		balls[0].pos_y = 30;
 		balls[0].vel_y = 1;
 	}
@@ -248,7 +248,8 @@ void _update()
 	{
 		balls[0].pos_x = balls[0].prev_pos_x;
 		balls[0].pos_y = balls[0].prev_pos_y;
-		balls[0].vel_y *= -1;
+		balls[0].vel_y = -balls[0].vel_y;
+		// puts("bounce\n");
 	}
 	
 	if (check_collision(&balls[0], &paddles[1])) // enemy

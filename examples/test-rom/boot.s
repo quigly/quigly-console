@@ -22,11 +22,10 @@
 .section .start
 
 _start:
+	la sp, __stack_top
+	
 	la t0, _gameloop
 	csrw 0x7C2, t0
-	
-	la sp, _stack_top
-#	addi sp, sp, -4
 	
 	jal ra, _init
 	

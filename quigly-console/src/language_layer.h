@@ -110,3 +110,17 @@ static inline void mem_swap(void* a, void* b, size_t size)
 		size -= 1;
 	}
 }
+
+static inline u32 f32_to_bits(f32 f)
+{
+	u32 n;
+	memcpy(&n, &f, sizeof(u32));
+	return n;
+}
+
+static inline f32 f32_from_bits(u32 bits)
+{
+	f32 f;
+	memcpy(&f, &bits, sizeof(f32));
+	return f;
+}

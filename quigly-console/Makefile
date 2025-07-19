@@ -28,8 +28,8 @@ ifeq ($(config),debug)
   INCLUDES += -Isrc
   FORCE_INCLUDE +=
   ALL_CPPFLAGS += $(CPPFLAGS) -MD -MP $(DEFINES) $(INCLUDES)
-  ALL_CFLAGS += $(CFLAGS) $(ALL_CPPFLAGS) -O0 -fPIC -g -fPIC
-  ALL_CXXFLAGS += $(CXXFLAGS) $(ALL_CPPFLAGS) -O0 -fPIC -g -fPIC
+  ALL_CFLAGS += $(CFLAGS) $(ALL_CPPFLAGS) -O0 -fPIC -g -fPIC -fno-fast-math
+  ALL_CXXFLAGS += $(CXXFLAGS) $(ALL_CPPFLAGS) -O0 -fPIC -g -fPIC -fno-fast-math
   ALL_RESFLAGS += $(RESFLAGS) $(DEFINES) $(INCLUDES)
   LIBS += -lm -ldl -lSDL3
   LDDEPS +=
@@ -64,8 +64,8 @@ ifeq ($(config),release)
   INCLUDES += -Isrc
   FORCE_INCLUDE +=
   ALL_CPPFLAGS += $(CPPFLAGS) -MD -MP $(DEFINES) $(INCLUDES)
-  ALL_CFLAGS += $(CFLAGS) $(ALL_CPPFLAGS) -O3 -fPIC -fPIC
-  ALL_CXXFLAGS += $(CXXFLAGS) $(ALL_CPPFLAGS) -O3 -fPIC -fPIC
+  ALL_CFLAGS += $(CFLAGS) $(ALL_CPPFLAGS) -O2 -fPIC -fPIC -fno-fast-math
+  ALL_CXXFLAGS += $(CXXFLAGS) $(ALL_CPPFLAGS) -O2 -fPIC -fPIC -fno-fast-math
   ALL_RESFLAGS += $(RESFLAGS) $(DEFINES) $(INCLUDES)
   LIBS += -lm -ldl -lSDL3
   LDDEPS +=

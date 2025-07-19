@@ -1,9 +1,11 @@
 ENTRY(_start)
 
 MEMORY {
-	ROM (rx) : ORIGIN = 0x2000000, LENGTH = 32M
-	RAM (rw) : ORIGIN = 0x100000, LENGTH = 4M
+	ROM (rx) : ORIGIN = 0x20000000, LENGTH = 128M
+	RAM (rw) : ORIGIN = 0x2000000, LENGTH = 32M
 }
+
+__stack_size = 1M;
 
 SECTIONS
 {
@@ -29,11 +31,12 @@ SECTIONS
 		__bss_start = .;
 		*(.bss*)
 		*(COMMON)
+		. += __stack_size;
+		__stack_top = .;
 		__bss_end = .;
 	}
 	
 	/DISCARD/ : { *(.comment) *(.gnu*) *(.note*) *(.eh_frame*) }
 }
 
-_heap_start = __bss_end;
-_stack_top = 0x500000 - 16;
+__heap_start = __bss_end;

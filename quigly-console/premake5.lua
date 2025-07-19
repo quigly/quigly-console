@@ -7,7 +7,7 @@ project "quigly-console"
 	toolset "clang"
 
 	pic "On"
-	buildoptions { "-fPIC" }
+	buildoptions { "-fPIC", "-fno-fast-math" }
 
 	files
 	{
@@ -26,7 +26,7 @@ project "quigly-console"
 
 	filter "configurations:Release"
 		defines { "NDEBUG" }
-		optimize "Speed"
+		optimize "On"
 
 	filter "system:linux"
 		links { "m", "dl", "SDL3" }
