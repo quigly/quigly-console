@@ -97,6 +97,9 @@ extern b8 btn(u8 button, u8 player);
 extern b8 btnp(u8 button, u8 player);
 extern void putc(char c);
 extern void shutdown();
+extern void push_offset(i32 x, i32 y);
+extern void pop_offset();
+extern void get_offset(i32* x, i32* y);
 
 extern u32 __heap_start;
 extern u32 __stack_top;

@@ -456,13 +456,15 @@ SDL_AppResult SDL_AppIterate(void* appstate)
 		vm->ppu.pixels = vm->video.pixels;
 
 		ppu_clip(&vm->ppu, 0, 0, PPU_SCREEN_WIDTH, PPU_SCREEN_HEIGHT);
+		vm->ppu.current_offset = 0;
+		vm->ppu.offset = (offset_t){ 0, 0 };
 
 		assert(vm->cpu.csrs[0x7C2]);
 		vm->cpu.pc = vm->cpu.csrs[0x7C2];
 
 		if (vm->paused)
 		{
-			if (is_key_pressed(vm, SDL_SCANCODE_RETURN))
+			if (is_key_pressed(vm, SDL_SCANCODE_BACKSPACE))
 			{
 				vm->paused = false;
 			}
@@ -1123,14 +1125,6 @@ void execute(vm_t* vm)
 					vm->finished_frame = true;
 				} break;
 
-				case 100: // camera
-				{
-					const i32 x = *(i32*)&vm->cpu.x[10];
-					const i32 y = *(i32*)&vm->cpu.x[11];
-
-					ppu_camera(&vm->ppu, x, y);
-				} break;
-
 				case 101: // pget
 				{
 					const i32 x = *(i32*)&vm->cpu.x[10];
@@ -1245,6 +1239,37 @@ void execute(vm_t* vm)
 
 					ppu_tile(&vm->ppu, n, x, y, bits);
 				} break;
+
+				case 114: // push_offset
+				{
+					const i32 x = *(i32*)&vm->cpu.x[10];
+					const i32 y = *(i32*)&vm->cpu.x[11];
+
+					ppu_push_offset(&vm->ppu, x, y);
+				} break;
+
+				case 115: // pop_offset
+				{
+					ppu_pop_offset(&vm->ppu);
+				} break;
+
+				case 116: // get_offset
+				{
+					const u32 x_addr = vm->cpu.x[10];
+					const u32 y_addr = vm->cpu.x[11];
+
+					i32* x;
+					i32* y;
+
+					bus_device_t* device;
+					x = bus_get_pointer(&vm->bus, &device, x_addr, 4);
+					if (x == NULL) { unreachable; }
+
+					y = bus_get_pointer(&vm->bus, &device, y_addr, 4);
+					if (y == NULL) { unreachable; }
+
+					ppu_get_offset(&vm->ppu, x, y);
+				} break;
 				
 				default:
 				{
@@ -1355,7 +1380,7 @@ void execute(vm_t* vm)
 		case INSTRUCTION_CSRRW:
 		{
 			assert(vm->cpu.csr < 4096);
-			printf("CSRRW 0x%X, 0x%X, 0x%X\n", vm->cpu.rd, vm->cpu.rs1, vm->cpu.csr);
+			// printf("CSRRW 0x%X, 0x%X, 0x%X\n", vm->cpu.rd, vm->cpu.rs1, vm->cpu.csr);
 
 			u32 old_value = vm->cpu.csrs[vm->cpu.csr];
 			if (vm->cpu.rs1 != 0)
@@ -1481,8 +1506,6 @@ void execute(vm_t* vm)
 	{
 		unreachable;
 	}
-
-	// SDL_Delay(1000);
 }
 
 static inline i32 i_imm(u32 inst)
@@ -1498,7 +1521,6 @@ static inline i32 s_imm(u32 inst)
 static inline i32 u_imm(u32 inst)
 {
 	return inst & 0b11111111111111111111000000000000;
-	// return ((uint32_t)inst & 0xFFFFF000);
 }
 
 static inline i32 j_imm(u32 inst)
@@ -1914,12 +1936,9 @@ void ppu_init(ppu_t* ppu)
 			rgba += 4;
 		}
 	}
-}
 
-void ppu_camera(ppu_t* ppu, i32 x, i32 y)
-{
-	ppu->camera_x = x;
-	ppu->camera_y = y;
+	ppu->clip_rect = (SDL_Rect){ 0, 0, PPU_SCREEN_WIDTH, PPU_SCREEN_HEIGHT };
+	ppu->current_offset = 0;
 }
 
 u16 ppu_pget(ppu_t* ppu, i32 x, i32 y)
@@ -2001,8 +2020,8 @@ void ppu_rect(ppu_t* ppu, i32 x, i32 y, i32 w, i32 h, u16 color)
 
 void ppu_rectfill(ppu_t* ppu, i32 x, i32 y, i32 w, i32 h, u16 color)
 {
-	x -= ppu->camera_x;
-	y -= ppu->camera_y;
+	x += ppu->offset.x;
+	y += ppu->offset.y;
 
 	i32 x0 = clamp(x, 0, PPU_SCREEN_WIDTH);
 	i32 y0 = clamp(y, 0, PPU_SCREEN_HEIGHT);
@@ -2020,10 +2039,10 @@ void ppu_rectfill(ppu_t* ppu, i32 x, i32 y, i32 w, i32 h, u16 color)
 
 void ppu_line(ppu_t* ppu, i32 x0, i32 y0, i32 x1, i32 y1, u16 color)
 {
-	x0 -= ppu->camera_x;
-	y0 -= ppu->camera_y;
-	x1 -= ppu->camera_x;
-	y1 -= ppu->camera_y;
+	x0 += ppu->offset.x;
+	y0 += ppu->offset.y;
+	x1 += ppu->offset.x;
+	y1 += ppu->offset.y;
 
 	i32 dx = abs(x1 - x0);
 	i32 dy = abs(y1 - y0);
@@ -2061,8 +2080,8 @@ void ppu_spr(ppu_t* ppu, i32 n, i32 x, i32 y, u32 bits)
 {
 	if (ppu->sprites == NULL) { return; }
 
-	x -= ppu->camera_x;
-	y -= ppu->camera_y;
+	x += ppu->offset.x;
+	y += ppu->offset.y;
 
 	assert(n < 256);
 	if ((x + 8) < 0) { return; }
@@ -2103,8 +2122,8 @@ void ppu_tile(ppu_t* ppu, i32 n, i32 x, i32 y, u32 bits)
 {
 	if (ppu->sprites == NULL) { return; }
 
-	x -= ppu->camera_x;
-	y -= ppu->camera_y;
+	x += ppu->offset.x;
+	y += ppu->offset.y;
 
 	assert(n < 256);
 	if ((x + 8) < 0) { return; }
@@ -2133,6 +2152,40 @@ void ppu_tile(ppu_t* ppu, i32 n, i32 x, i32 y, u32 bits)
 			ppu_pset(ppu, dst_x, dst_y, color);
 		}
 	}
+}
+
+void ppu_push_offset(ppu_t* ppu, i32 x, i32 y)
+{
+	assert(ppu != NULL);
+
+	if (ppu->current_offset >= PPU_MAX_OFFSETS)
+	{
+		return;
+	}
+	
+	ppu->offset.x += x;
+	ppu->offset.y += y;
+
+	ppu->current_offset += 1;
+	ppu->offsets[ppu->current_offset] = (offset_t){ x, y };
+}
+
+void ppu_pop_offset(ppu_t* ppu)
+{
+	if (ppu->current_offset <= 0)
+	{
+		return;
+	}
+
+	ppu->offset.x -= ppu->offsets[ppu->current_offset].x;
+	ppu->offset.y -= ppu->offsets[ppu->current_offset].y;
+	ppu->current_offset -= 1;
+}
+
+void ppu_get_offset(ppu_t* ppu, i32* x, i32* y)
+{
+	*x = ppu->offset.x;
+	*y = ppu->offset.y;
 }
 
 bool is_key_down(vm_t* vm, SDL_Scancode scancode)

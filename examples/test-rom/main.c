@@ -262,12 +262,18 @@ void _update()
 
 static void draw_paddle(u32 i)
 {
+	push_offset(
+		paddles[i].pos_x - (paddles[i].size_x / 2),
+		paddles[i].pos_y - (paddles[i].size_y / 2));
+
 	spr_data(sprites, 256);
 	pal(RGB(0, 0, 0), RGB(31, 0, 0), RGB(0, 31, 0), RGB(0, 0, 31));
-	spr(1, paddles[i].pos_x - (paddles[i].size_x / 2), paddles[i].pos_y - (paddles[i].size_y / 2), 0);
-	spr(2, paddles[i].pos_x - (paddles[i].size_x / 2) + 8, paddles[i].pos_y - (paddles[i].size_y / 2), 0);
-	spr(3, paddles[i].pos_x - (paddles[i].size_x / 2) + 16, paddles[i].pos_y - (paddles[i].size_y / 2), 0);
-	spr(4, paddles[i].pos_x - (paddles[i].size_x / 2) + 24, paddles[i].pos_y - (paddles[i].size_y / 2), 0);
+	spr(1, 0, 0, 0);
+	spr(2, 8, 0, 0);
+	spr(3, 16, 0, 0);
+	spr(4, 24, 0, 0);
+
+	pop_offset();
 }
 
 void _draw()

@@ -2,7 +2,6 @@
 .globl _init
 .globl _update
 .globl _draw
-.globl camera
 .globl pget
 .globl pset
 .globl cls
@@ -18,6 +17,9 @@
 .globl btnp
 .globl putc
 .globl shutdown
+.globl push_offset
+.globl pop_offset
+.globl get_offset
 
 .section .start
 
@@ -47,11 +49,6 @@ _gameloop:
 	lw ra, 12(sp)
 	addi sp, sp, 16
 
-	ret
-
-camera:
-	li a7, 100
-	ecall
 	ret
 
 pget:
@@ -109,6 +106,21 @@ tile:
 	ecall
 	ret
 
+push_offset:
+	li a7, 114
+	ecall
+	ret
+
+pop_offset:
+	li a7, 115
+	ecall
+	ret
+
+get_offset:
+	li a7, 116
+	ecall
+	ret
+
 btn:
 	li a7, 50
 	ecall
@@ -128,3 +140,4 @@ shutdown:
 	li a7, 53
 	ecall
 	ret
+

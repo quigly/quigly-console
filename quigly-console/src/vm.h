@@ -19,6 +19,7 @@
 #define PPU_SPRITE_SHEET_WIDTH 256
 #define PPU_SPRITE_SHEET_SIZE (PPU_SPRITE_SHEET_WIDTH * PPU_SPRITE_SHEET_WIDTH)
 #define PPU_COLOR_COUNT 32768
+#define PPU_MAX_OFFSETS 256
 
 #define PPU_RGB_PACK(r, g, b) ((r) | ((g) << 5) | ((b) << 10))
 
@@ -107,6 +108,12 @@ typedef struct
 
 typedef struct
 {
+	i32 x;
+	i32 y;
+} offset_t;
+
+typedef struct
+{
 	u32* pixels;
 	u16 palette[4];
 	u32 colors[PPU_SCREEN_TOTAL_PIXELS];
@@ -114,8 +121,9 @@ typedef struct
 	u8* sprites;
 	u32 num_sprites;
 	SDL_Rect clip_rect;
-	i32 camera_x;
-	i32 camera_y;
+	offset_t offsets[PPU_MAX_OFFSETS];
+	i32 current_offset;
+	offset_t offset;
 } ppu_t;
 
 typedef struct
@@ -214,7 +222,7 @@ void bus_write_16(bus_t* bus, cpu_t* cpu, u32 address, u16 value);
 void bus_write_32(bus_t* bus, cpu_t* cpu, u32 address, u32 value);
 
 void ppu_init(ppu_t* ppu);
-void ppu_camera(ppu_t* ppu, i32 x, i32 y); // ecall 100
+// void ppu_camera(ppu_t* ppu, i32 x, i32 y); // ecall 100
 u16 ppu_pget(ppu_t* ppu, i32 x, i32 y);
 void ppu_pset(ppu_t* ppu, i32 x, i32 y, u16 color);
 void ppu_cls(ppu_t* ppu, u16 color);
@@ -226,6 +234,9 @@ void ppu_pal(ppu_t* ppu, u16 c0, u16 c1, u16 c2, u16 c3);
 void ppu_spr_data(ppu_t* ppu, void* data, u32 num_sprites);
 void ppu_spr(ppu_t* ppu, i32 n, i32 x, i32 y, u32 bits);
 void ppu_tile(ppu_t* ppu, i32 n, i32 x, i32 y, u32 bits);
+void ppu_push_offset(ppu_t* ppu, i32 x, i32 y);
+void ppu_pop_offset(ppu_t* ppu);
+void ppu_get_offset(ppu_t* ppu, i32* x, i32* y);
 
 bool is_key_down(vm_t* vm, SDL_Scancode scancode);
 bool is_key_pressed(vm_t* vm, SDL_Scancode scancode);
